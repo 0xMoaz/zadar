@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# fleet — at-a-glance CLI dashboard for parallel dev work.
+# Sections: system memory · dev servers · Claude sessions · top memory · worktrees.
+# Usage: fleet        one-shot snapshot
+#        fleet -w     live dashboard, refresh every 2s (Ctrl-C to quit)
+set -u
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  B=$'\033[1m'; D=$'\033[2m'; R=$'\033[0m'
+  CY=$'\033[36m'; GR=$'\033[32m'; YE=$'\033[33m'; RD=$'\033[31m'; MG=$'\033[35m'
+else
+  B=; D=; R=; CY=; GR=; YE=; RD=; MG=
+fi
+
+hdr()  { printf '\n%s%s %s%s\n' "$B" "$CY" "$1" "$R"; }
+dim()  { printf '%s%s%s\n' "$D" "$1" "$R"; }
+short(){ case "$1" in "$HOME"*) printf '~%s' "${1#"$HOME"}";; *) printf '%s' "$1";; esac; }
+cwd_of(){ lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
+
+fmt_mem(){ awk -v r="${1:-0}" 'BEGIN{ if(r+0>1048576) printf "%.1fG", r/1048576; else printf "%dM", r/1024 }'; }
+mem_field(){ # $1 rss-kb -> colored, fixed-width(6) mem string
+  local f c; f=$(fmt_mem "$1"); f=$(printf '%-6s' "$f")
+  c=$(awk -v r="${1:-0}" 'BEGIN{ if(r+0>4194304)print "hi"; else if(r+0>1572864)print "mid"; else print "ok"}')
+  case "$c" in hi) printf '%s%s%s' "$RD" "$f" "$R";; mid) printf '%s%s%s' "$YE" "$f" "$R";; *) printf '%s' "$f";; esac
+}
+
+section_system(){
+  hdr "SYSTEM"
+  local total used pct swap load ps act wir cmp
+  total=$(sysctl -n hw.memsize); ps=$(sysctl -n hw.pagesize)
+  eval "$(vm_stat | awk -v ps="$ps" '
+    /Pages active/{gsub(/\./,"",$3); a=$3}
+    /Pages wired/{gsub(/\./,"",$4); w=$4}
+    /occupied by compressor/{gsub(/\./,"",$5); c=$5}
+    END{printf "act=%d wir=%d cmp=%d", a, w, c}')"
+  used=$(( (act + wir + cmp) * ps ))
+  pct=$(awk -v u="$used" -v t="$total" 'BEGIN{printf "%d", u*100/t}')
+  swap=$(sysctl -n vm.swapusage | awk '{print $6}')
+  load=$(sysctl -n vm.loadavg | awk '{print $2, $3, $4}')
+  local pc="$GR"; [ "$pct" -gt 75 ] && pc="$YE"; [ "$pct" -gt 90 ] && pc="$RD"
+  local sc="$GR"; case "$swap" in 0.00M) sc="$GR";; *) sc="$YE";; esac
+  printf "  ram %s%dG used / %dG  (%s%d%%%s)   swap %s%s%s   load %s\n" \
+    "" "$((used/1073741824))" "$((total/1073741824))" "$pc" "$pct" "$R" "$sc" "$swap" "$R" "$load"
+}
+
+section_servers(){
+  hdr "DEV SERVERS"
+  local rows
+  rows=$(lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null \
+    | awk 'NR>1{n=split($9,a,":"); print a[n], $2}' | sort -u -k1,1n -k2,2)
+  local any=0
+  printf '%s  %-6s %-7s %-6s %-9s %s%s\n' "$D" PORT PID MEM UPTIME PROJECT "$R"
+  while read -r port pid; do
+    [ -n "${port:-}" ] || continue
+    local comm base; comm=$(ps -p "$pid" -o comm= 2>/dev/null); base=${comm##*/}
+    case "$base" in node|bun|deno|vite|next-server*) ;; *) continue;; esac
+    any=1
+    local rss up proj; rss=$(ps -p "$pid" -o rss= 2>/dev/null)
+    up=$(ps -p "$pid" -o etime= 2>/dev/null | tr -d ' ')
+    proj=$(short "$(cwd_of "$pid")")
+    printf '  %-6s %-7s %s %-9s %s\n' "$port" "$pid" "$(mem_field "$rss")" "$up" "$proj"
+  done <<EOF
+$rows
+EOF
+  [ "$any" = 0 ] && dim "  none"
+}
+
+section_sessions(){
+  hdr "CLAUDE SESSIONS"
+  local rows
+  rows=$(ps -axo pid=,etime=,rss=,command= 2>/dev/null \
+    | grep 'claude.app/Contents/MacOS/claude' | grep 'stream-json' | grep -v 'Helpers/disclaimer')
+  [ -z "$rows" ] && { dim "  none"; return; }
+  printf '%s  %-7s %-6s %-9s %-22s %s%s\n' "$D" PID MEM UPTIME MODEL PROJECT "$R"
+  printf '%s\n' "$rows" | while read -r pid etime rss rest; do
+    local model proj
+    model=$(printf '%s' "$rest" | sed -n 's/.*--model \([^ ]*\).*/\1/p'); model=${model:-?}
+    proj=$(short "$(cwd_of "$pid")")
+    printf '  %-7s %s %-9s %-22s %s\n' "$pid" "$(mem_field "$rss")" "$etime" "$model" "$proj"
+  done
+}
+
+section_topmem(){
+  hdr "TOP MEMORY"
+  ps -axo rss,pid,comm 2>/dev/null | sort -rn | head -5 | while read -r rss pid comm; do
+    printf '  %s %-7s %s\n' "$(mem_field "$rss")" "$pid" "${comm##*/}"
+  done
+}
+
+section_worktrees(){
+  hdr "WORKTREES"
+  local any=0 repo wts wt branch dirty total changed detail line
+  for repo in "$HOME"/Code/*/; do
+    wts="$repo.claude/worktrees"
+    [ -d "$wts" ] || continue
+    total=0; changed=0; detail=""
+    for wt in "$wts"/*/; do
+      [ -d "$wt" ] || continue
+      total=$((total + 1))
+      branch=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null); branch=${branch:-?}
+      dirty=$(git -C "$wt" status --porcelain 2>/dev/null | grep -c .); dirty=${dirty:-0}
+      [ "$dirty" -gt 0 ] || continue
+      changed=$((changed + 1))
+      printf -v line '    %-26s %-26s %s%d changed%s' "$(basename "$wt")" "$branch" "$YE" "$dirty" "$R"
+      detail="$detail$line
+"
+    done
+    [ "$total" = 0 ] && continue
+    any=1
+    printf '  %-16s %s%d worktrees%s · %s%d changed%s · %s%d clean%s\n' \
+      "$(basename "$repo")" "$B" "$total" "$R" "$YE" "$changed" "$R" "$D" "$((total - changed))" "$R"
+    [ -n "$detail" ] && printf '%s' "$detail"
+  done
+  [ "$any" = 0 ] && dim "  none"
+}
+
+render(){
+  printf '%s%s FLEET%s   %s%s%s\n' "$B" "$MG" "$R" "$D" "$(date '+%a %H:%M:%S')" "$R"
+  section_system
+  section_servers
+  section_sessions
+  section_topmem
+  section_worktrees
+}
+
+case "${1:-}" in
+  -w|--watch)
+    trap 'tput cnorm 2>/dev/null; printf "\n"; exit 0' INT
+    tput civis 2>/dev/null
+    while :; do out=$(render); clear; printf '%s\n' "$out"; sleep 2; done
+    ;;
+  *) render ;;
+esac
+exit 0
