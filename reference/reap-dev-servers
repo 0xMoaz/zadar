@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# reap-dev-servers — kill stale dev servers tied to git worktrees.
+#
+#   reap-dev-servers orphans   (default) kill dev servers whose .claude/worktrees/<x>
+#                              directory no longer exists. Safe: never touches a live
+#                              worktree's server, only servers whose worktree is gone.
+#
+#   reap-dev-servers end       read Claude Code hook JSON on stdin; kill dev servers
+#                              running under the ending session's worktree. Aggressive —
+#                              wire to a SessionEnd hook only if you want that.
+set -u
+mode="${1:-orphans}"
+
+pids=$(pgrep -f 'next-server|next dev|vite|nuxt dev' 2>/dev/null)
+[ -z "$pids" ] && exit 0
+
+cwd_of() { lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
+
+if [ "$mode" = "end" ]; then
+  wt=$(cat 2>/dev/null | jq -r '.cwd // empty' 2>/dev/null)
+  case "$wt" in */.claude/worktrees/*) ;; *) exit 0 ;; esac
+  for pid in $pids; do
+    c=$(cwd_of "$pid"); [ -n "$c" ] || continue
+    case "$c" in "$wt"*) kill "$pid" 2>/dev/null && echo "reaped $pid ($c)" >&2 ;; esac
+  done
+else
+  for pid in $pids; do
+    c=$(cwd_of "$pid"); [ -n "$c" ] || continue
+    case "$c" in
+      */.claude/worktrees/*)
+        [ -d "$c" ] || { kill "$pid" 2>/dev/null && echo "reaped orphan $pid ($c)" >&2; } ;;
+    esac
+  done
+fi
+exit 0

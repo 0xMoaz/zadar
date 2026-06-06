@@ -1,0 +1,20 @@
+# deps / build
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# bun
+.bun/
+bun.lockb.bak
+
+# native (opentui/zig)
+zig-out/
+zig-cache/
+.zig-cache/
+
+# env / local
+.env
+.env.local
+*.log
+.DS_Store
