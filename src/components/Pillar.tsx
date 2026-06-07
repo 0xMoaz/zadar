@@ -1,0 +1,45 @@
+import type { ReactNode } from "react"
+import { color } from "../theme"
+import { SectionHeader } from "./SectionHeader"
+
+/**
+ * A collapsible pillar: header on top, and — when expanded — its content
+ * indented under a faint left guide line that doubles as the open/close separator.
+ */
+export function Pillar({
+  id,
+  label,
+  summary,
+  expanded,
+  selected,
+  children,
+}: {
+  id: string
+  label: string
+  summary: string
+  expanded: boolean
+  selected: boolean
+  children?: ReactNode
+}) {
+  return (
+    <box flexDirection="column">
+      <box id={id}>
+        <SectionHeader label={label} summary={summary} expanded={expanded} selected={selected} />
+      </box>
+      {expanded && children ? (
+        <box paddingTop={1} paddingLeft={1}>
+          <box
+            border={["left"]}
+            borderStyle="single"
+            borderColor={color.faint}
+            paddingLeft={2}
+            flexDirection="column"
+            gap={1}
+          >
+            {children}
+          </box>
+        </box>
+      ) : null}
+    </box>
+  )
+}
