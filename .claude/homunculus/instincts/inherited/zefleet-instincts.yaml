@@ -1,0 +1,562 @@
+# Instincts generated from https://github.com/0xMoaz/zefleet
+# Generated: 2026-06-09T21:51:53.954Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: zefleet-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, fix, plan
+
+## Evidence
+
+- 10 commits analyzed
+- Detected conventional commit pattern
+- Examples: plan: v2 living-fleet overhaul — phased todo, feat(status): pure status engine — ready/approval/error/unknown states
+
+---
+id: zefleet-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Commit Length
+
+## Action
+
+Write moderate-length commit messages (~69 characters)
+
+## Evidence
+
+- Average commit message length: 69 chars
+- Based on 10 commits
+
+---
+id: zefleet-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: zefleet-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: zefleet-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: zefleet-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: collectors, components, transcript
+
+---
+id: zefleet-test-colocate
+trigger: "when writing tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Test Colocate
+
+## Action
+
+Place test file next to the source file (e.g., Button.test.tsx next to Button.tsx)
+
+## Evidence
+
+- Colocated test pattern detected
+- Tests live alongside source files
+
+---
+id: zefleet-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Test Framework
+
+## Action
+
+Use jest as the test framework
+
+## Evidence
+
+- Test framework detected: jest
+- File pattern: *.test.ts
+
+---
+id: zefleet-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: zefleet-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~15x per month
+- Files: src/*, src/transcript/*, src/collectors/*
+
+---
+id: zefleet-workflow-feature-development-with-unit-tests
+trigger: "when doing feature development with unit tests"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Workflow Feature Development With Unit Tests
+
+## Action
+
+Follow the feature-development-with-unit-tests workflow:
+1. Implement or overhaul logic in one or more source files (e.g., src/transcript/status.ts, src/signal.ts, src/collect.ts)
+2. Update or create corresponding unit test files (e.g., src/transcript/status.test.ts, src/signal.test.ts, src/collect.test.ts)
+3. Update types as needed (src/types.ts)
+4. Update related UI components if applicable
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/*.ts, src/*.test.ts, src/types.ts
+
+---
+id: zefleet-workflow-ui-component-enhancement-with-mock-and-smoke
+trigger: "when doing ui component enhancement with mock and smoke"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Workflow Ui Component Enhancement With Mock And Smoke
+
+## Action
+
+Follow the ui-component-enhancement-with-mock-and-smoke workflow:
+1. Modify or add UI component files (e.g., src/components/*.tsx)
+2. Update mock data to reflect new UI states (src/mock.ts)
+3. Update or add smoke test files (src/smoke.tsx)
+4. Optionally update format or helper files (src/format.ts, src/format.test.ts)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/components/*.tsx, src/mock.ts, src/smoke.tsx
+
+---
+id: zefleet-workflow-test-suite-expansion-and-docs-update
+trigger: "when doing test suite expansion and docs update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/0xMoaz/zefleet
+---
+
+# Zefleet Workflow Test Suite Expansion And Docs Update
+
+## Action
+
+Follow the test-suite-expansion-and-docs-update workflow:
+1. Add or update test files (e.g., src/app.test.tsx, src/*.test.ts)
+2. Remove or replace obsolete test scripts
+3. Update documentation files (README.md, DESIGN.md)
+4. Optionally update todo or planning files (tasks/todo.md)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/*.test.ts, src/app.test.tsx, README.md
+
+---
+id: zefleet-instinct-file-naming-camelCase
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct File Naming CamelCase
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Seen in src/theme.ts, src/mock.ts
+
+---
+id: zefleet-instinct-function-naming-camelCase
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Function Naming CamelCase
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in namingConventions.functions
+- Seen in src/transcript/status.ts
+
+---
+id: zefleet-instinct-class-naming-PascalCase
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Class Naming PascalCase
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: zefleet-instinct-constant-naming-screaming-snake
+trigger: "When declaring a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Constant Naming Screaming Snake
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: zefleet-instinct-import-style-relative
+trigger: "When importing modules within the project"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Import Style Relative
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle
+- Seen in src/transcript/status.ts
+
+---
+id: zefleet-instinct-export-style-named
+trigger: "When exporting functions, classes, or constants"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Export Style Named
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle
+
+---
+id: zefleet-instinct-unit-test-pattern
+trigger: "When adding or updating logic in a TypeScript file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Unit Test Pattern
+
+## Action
+
+Create or update a corresponding *.test.ts file for unit testing
+
+## Evidence
+
+- Pattern in testing.filePattern
+- Seen in src/transcript/status.test.ts
+
+---
+id: zefleet-instinct-test-framework-jest
+trigger: "When writing automated tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Test Framework Jest
+
+## Action
+
+Use Jest as the testing framework
+
+## Evidence
+
+- Pattern in testing.framework
+- Seen in src/*.test.ts
+
+---
+id: zefleet-instinct-test-colocation
+trigger: "When creating test files"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Test Colocation
+
+## Action
+
+Colocate test files with the source files they cover
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+- Seen in src/transcript/status.test.ts
+
+---
+id: zefleet-instinct-commit-conventional-prefix
+trigger: "When making a git commit"
+confidence: 0.95
+domain: git
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Commit Conventional Prefix
+
+## Action
+
+Use a conventional commit prefix (feat, fix, plan) followed by a colon and a brief description
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Seen in 'feat(status): pure status engine — ready/approval/error/unknown states'
+
+---
+id: zefleet-instinct-commit-average-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Commit Average Length
+
+## Action
+
+Keep the commit message concise, around 69 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: zefleet-instinct-feature-development-with-unit-tests
+trigger: "When adding a new feature or overhauling core logic"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Feature Development With Unit Tests
+
+## Action
+
+Implement or update logic in source files, create/update unit tests, update types, and update related UI components if needed
+
+## Evidence
+
+- Workflow: feature-development-with-unit-tests
+- Seen in commits and files for status engine
+
+---
+id: zefleet-instinct-ui-component-enhancement-with-mock-and-smoke
+trigger: "When enhancing or adding UI components"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Ui Component Enhancement With Mock And Smoke
+
+## Action
+
+Modify/add UI component files, update mock data, update/add smoke test files, and optionally update format/helper files
+
+## Evidence
+
+- Workflow: ui-component-enhancement-with-mock-and-smoke
+- Seen in src/components/*.tsx, src/mock.ts, src/smoke.tsx
+
+---
+id: zefleet-instinct-test-suite-expansion-and-docs-update
+trigger: "When increasing test coverage or updating documentation for new/changed behaviors"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: 0xMoaz/zefleet
+---
+
+# Zefleet Instinct Test Suite Expansion And Docs Update
+
+## Action
+
+Add/update test files, remove obsolete tests, update documentation files, and optionally update todo/planning files
+
+## Evidence
+
+- Workflow: test-suite-expansion-and-docs-update
+- Seen in src/*.test.ts, README.md, DESIGN.md
+
