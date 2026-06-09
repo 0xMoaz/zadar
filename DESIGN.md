@@ -5,6 +5,18 @@
 > btop, k9s, atuin, glances). Companion to [ARCHITECTURE.md](./ARCHITECTURE.md)
 > (the data layer) and [README.md](./README.md) (the product).
 
+> **v3 addendum (shipped):** the IA is now attention-first. The default view
+> is a two-zone map: **NEEDS YOU** — one ranked queue of every actionable
+> item across resource types (questions with chips, pending tools, errors,
+> fat/orphaned servers, reviews) — and **PROJECTS**, one card per repo in
+> stable alphabetical order (urgency reorders the queue, never the map).
+> Queue items carry their target: o/c/x act directly, Enter inspects the
+> entity in place. Project identity hues bind an entity's rows via 1-cell
+> separator dots. Working rows wear an EKG (real transcript cadence). The
+> flight recorder persists across restarts; the serene state tells the day's
+> story. Codex sessions are fully parsed (ctx%, cost, lifecycle, plan %).
+> `v` returns to the classic v2 sections.
+
 > **v2 addendum (shipped):** the agent row is now ONE calm line at rest with a
 > uniform vitals column; urgency auto-expands beneath it (urgency = height).
 > New states: `◆ ready` (turn finished, badged with its `+/-` diff) and `?`

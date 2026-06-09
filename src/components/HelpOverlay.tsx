@@ -4,6 +4,7 @@ const ROWS: [string, string][] = [
   ["j / k   ↓ / ↑", "move selection"],
   ["g / G", "first / last row"],
   ["⏎", "expand / collapse details (or fold a section)"],
+  ["v", "switch view — attention map / classic sections"],
   ["← / →   h / l", "fold section · close / open details"],
   ["o", "open — Claude app (agent) / browser (server)"],
   ["c", "copy resume command (agent) / url (server)"],
