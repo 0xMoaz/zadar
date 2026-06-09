@@ -58,6 +58,29 @@ export function clip(s: string, max: number): string {
   return s.length > max ? s.slice(0, Math.max(0, max - 1)) + "…" : s
 }
 
+/** word-wrap into at most maxLines lines of width chars; ellipsized when truncated */
+export function wrapText(s: string, width: number, maxLines = 3): string[] {
+  const words = s.replace(/\s+/g, " ").trim().split(" ").filter(Boolean)
+  const lines: string[] = []
+  let line = ""
+  for (const w of words) {
+    const candidate = line ? `${line} ${w}` : w
+    if (candidate.length > width && line) {
+      lines.push(line)
+      line = w
+      if (lines.length === maxLines) break
+    } else {
+      line = candidate
+    }
+  }
+  if (lines.length < maxLines) {
+    if (line) lines.push(line)
+  } else {
+    lines[maxLines - 1] = clip(`${lines[maxLines - 1]} ${line} …`, width)
+  }
+  return lines.map((l) => clip(l, width))
+}
+
 /** pad/truncate to an exact column width (monospace-safe for ASCII-ish content) */
 export function col(s: string, width: number, align: "left" | "right" = "left"): string {
   if (s.length > width) return s.slice(0, Math.max(0, width - 1)) + "…"

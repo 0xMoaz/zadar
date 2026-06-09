@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clip, ctxCells, fmtDuration, fmtMem, fmtTokens, sparkline } from "./format"
+import { clip, ctxCells, fmtDuration, fmtMem, fmtTokens, sparkline, wrapText } from "./format"
 
 describe("fmtDuration", () => {
   test("compact single-unit", () => {
@@ -27,6 +27,26 @@ describe("ctxCells", () => {
     expect(ctxCells(0, 6)).toEqual({ filled: "", trough: "▱▱▱▱▱▱" })
     expect(ctxCells(50, 6).filled.length).toBe(3)
     expect(ctxCells(120, 6)).toEqual({ filled: "▰▰▰▰▰▰", trough: "" })
+  })
+})
+
+describe("wrapText", () => {
+  test("wraps on word boundaries", () => {
+    expect(wrapText("should I overwrite the existing config", 20, 3)).toEqual([
+      "should I overwrite",
+      "the existing config",
+    ])
+  })
+  test("respects maxLines and marks truncation", () => {
+    const lines = wrapText("one two three four five six seven eight nine ten", 10, 2)
+    expect(lines.length).toBe(2)
+    expect(lines[1].endsWith("…")).toBe(true)
+  })
+  test("short text stays one line", () => {
+    expect(wrapText("hello world", 40)).toEqual(["hello world"])
+  })
+  test("overlong single word is clipped, not looped", () => {
+    expect(wrapText("supercalifragilistic", 10)).toEqual(["supercali…"])
   })
 })
 
