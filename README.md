@@ -34,9 +34,22 @@ npx github:0xMoaz/zefleet      # one-off run  (needs Bun → https://bun.sh)
 
 ```bash
 bun install
-bun run fleet                 # live dashboard
-bun run smoke                 # headless render at wide + narrow widths
+bun run fleet                 # live dashboard (inside the repo only)
+bun run smoke                 # headless render at several geometries
+bun test                      # unit + headless interaction suite
 ```
+
+For a global `zefleet` command from any directory:
+
+```bash
+printf '#!/bin/sh\nexec bun %s/src/index.tsx "$@"\n' "$(pwd)" > ~/.local/bin/zefleet
+chmod +x ~/.local/bin/zefleet
+```
+
+> **PATH trap:** outside this repo, `bun run fleet` falls through to whatever
+> `fleet` binary is on your PATH — on this machine that's the *old bash
+> dashboard*, which prints one frame and exits. Use `zefleet` (above), or
+> repoint `~/.local/bin/fleet` once you're ready to retire the bash version.
 
 **Keys:** `↑↓`/`jk` move · `⏎` disclose details / fold a section · `←→`/`hl`
 fold · `o` open (Claude app / browser) · `c` copy (resume / url) · `x` kill ·

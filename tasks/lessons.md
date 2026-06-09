@@ -45,3 +45,10 @@ disambiguation) — toggle overlays closed with their own key in tests.
 `useKeyboard` delivers shift+G as `{name: "g", shift: true}` — matching
 `key.name === "G"` silently never fires. v1's jump-to-last was dead code
 for this reason; headless interaction tests caught it.
+
+## "bun run fleet" outside the repo runs the OLD bash fleet
+`bun run <name>` falls back to PATH executables when no package.json script
+matches — outside ~/Code/zefleet that resolves to ~/.local/bin/fleet (the
+bash one-shot), which prints and exits: looks like "the app doesn't run".
+Global launcher installed as ~/.local/bin/zefleet (execs bun + src/index.tsx).
+Repointing `fleet` itself still needs Zee's explicit OK.
