@@ -32,6 +32,8 @@ export interface Agent {
   costUsd: number
   /** cost velocity over the last ~10 minutes, $/hour */
   burnPerHour?: number
+  /** provider plan-quota burn % (Codex rate_limits) */
+  planPct?: number
   /** uncommitted change size in the agent's cwd — what it produced for review */
   diff?: { files: number; plus: number; minus: number }
   tokens: number

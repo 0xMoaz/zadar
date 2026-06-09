@@ -141,6 +141,9 @@ export function AgentBlock({
             {agent.burnPerHour !== undefined && agent.burnPerHour >= 0.05 && (
               <span fg={color.dim}> · ${agent.burnPerHour.toFixed(1)}/h</span>
             )}
+            {agent.planPct !== undefined && (
+              <span fg={agent.planPct >= 80 ? color.attention : color.dim}> · plan {Math.round(agent.planPct)}%</span>
+            )}
             {urgent && (
               <span fg={ctxColor(agent.contextPct)}>
                 {"  ctx "}
