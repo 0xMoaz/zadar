@@ -42,6 +42,7 @@ export interface DevServer {
   uptime: string
   project: string
   branch: string
+  cwd: string
   /** true when the server's cwd no longer exists (orphaned worktree) */
   stale: boolean
 }

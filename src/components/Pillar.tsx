@@ -12,6 +12,7 @@ export function Pillar({
   summary,
   expanded,
   selected,
+  dense = false,
   children,
 }: {
   id: string
@@ -19,6 +20,7 @@ export function Pillar({
   summary: string
   expanded: boolean
   selected: boolean
+  dense?: boolean
   children?: ReactNode
 }) {
   return (
@@ -27,14 +29,14 @@ export function Pillar({
         <SectionHeader label={label} summary={summary} expanded={expanded} selected={selected} />
       </box>
       {expanded && children ? (
-        <box paddingTop={1} paddingLeft={1}>
+        <box paddingTop={dense ? 0 : 1} paddingLeft={1}>
           <box
             border={["left"]}
             borderStyle="single"
             borderColor={color.faint}
             paddingLeft={2}
             flexDirection="column"
-            gap={1}
+            gap={dense ? 0 : 1}
           >
             {children}
           </box>

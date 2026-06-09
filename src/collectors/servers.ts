@@ -30,7 +30,7 @@ export async function collectServers(): Promise<DevServer[]> {
     const project = shorten(cwd).split("/").pop() || base
     const branch = await branchOf(cwd)
     const stale = cwd ? !existsSync(cwd) : false
-    servers.push({ port, pid, memKB: rss, uptime: fmtDuration(etimeToSec(etime)), project, branch, stale })
+    servers.push({ port, pid, memKB: rss, uptime: fmtDuration(etimeToSec(etime)), project, branch, cwd, stale })
   }
   return servers.sort((a, b) => a.port - b.port)
 }
