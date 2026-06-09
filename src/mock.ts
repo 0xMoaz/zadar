@@ -195,8 +195,78 @@ export const mockSnapshot: Snapshot = {
     },
   ],
   worktrees: [
-    { repo: "omnipair-webapp", total: 9, changed: 5 },
-    { repo: "webapp", total: 4, changed: 1 },
-    { repo: "argo", total: 7, changed: 0 },
+    {
+      repo: "omnipair-webapp",
+      path: "/Users/zee/Code/omnipair-webapp",
+      total: 3,
+      changed: 2,
+      items: [
+        {
+          name: "feat-pairing",
+          branch: "feat/pairing",
+          dirty: 12,
+          ageDays: 1,
+          path: "/Users/zee/Code/omnipair-webapp/.claude/worktrees/feat-pairing",
+        },
+        {
+          name: "fix-ws-leak",
+          branch: "fix/ws-leak",
+          dirty: 3,
+          ageDays: 4,
+          path: "/Users/zee/Code/omnipair-webapp/.claude/worktrees/fix-ws-leak",
+        },
+        {
+          name: "agent-7",
+          branch: "agent-7",
+          dirty: 0,
+          ageDays: 19,
+          path: "/Users/zee/Code/omnipair-webapp/.claude/worktrees/agent-7",
+        },
+      ],
+    },
+    {
+      repo: "webapp",
+      path: "/Users/zee/Code/webapp",
+      total: 2,
+      changed: 1,
+      items: [
+        {
+          name: "fix-auth",
+          branch: "fix/auth-redirect",
+          dirty: 5,
+          ageDays: 0,
+          path: "/Users/zee/Code/webapp/.claude/worktrees/fix-auth",
+        },
+        {
+          name: "spike-otel",
+          branch: "spike/otel",
+          dirty: 0,
+          ageDays: 11,
+          path: "/Users/zee/Code/webapp/.claude/worktrees/spike-otel",
+        },
+      ],
+    },
+    {
+      repo: "argo",
+      path: "/Users/zee/Code/argo",
+      total: 2,
+      changed: 0,
+      items: [
+        {
+          name: "agent-2",
+          branch: "agent-2",
+          dirty: 0,
+          ageDays: 23,
+          path: "/Users/zee/Code/argo/.claude/worktrees/agent-2",
+        },
+        {
+          name: "agent-5",
+          branch: "agent-5",
+          dirty: 0,
+          ageDays: 31,
+          path: "/Users/zee/Code/argo/.claude/worktrees/agent-5",
+        },
+      ],
+    },
   ],
 }

@@ -29,5 +29,6 @@ await shot("DETAILS — first agent expanded (100×36)", 100, 36, ["j", "RETURN"
 await shot("SHOW ALL — idle revealed (100×38)", 100, 38, ["i"])
 await shot("NARROW (72×36)", 72, 36)
 await shot("DENSE SPLIT (84×18)", 84, 18)
+await shot("WORKTREES — drilled into a repo (90×30)", 90, 30, ["RETURN", "j", "j", "RETURN", "j", "RETURN"])
 
 process.exit(0)

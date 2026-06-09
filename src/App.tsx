@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
-import type { Agent, DevServer, RepoWorktrees, Snapshot } from "./types"
-import { copyResume, copyText, killProcess, resumeCommand } from "./actions"
+import { invalidateWorktrees } from "./collectors/worktrees"
+import type { Agent, DevServer, RepoWorktrees, Snapshot, WorktreeItem } from "./types"
+import {
+  copyResume,
+  copyText,
+  focusClaude,
+  killProcess,
+  notify,
+  openServer,
+  pruneWorktree,
+  resumeCommand,
+} from "./actions"
 import { color, statusColor, statusGlyph } from "./theme"
 import { clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
-import { WorktreeCard } from "./components/WorktreeCard"
+import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
 import { Footer } from "./components/Footer"
@@ -29,6 +39,7 @@ type Row =
   | { sid: string; kind: "agent"; section: Section; agent: Agent }
   | { sid: string; kind: "server"; section: Section; server: DevServer }
   | { sid: string; kind: "worktree"; section: Section; wt: RepoWorktrees }
+  | { sid: string; kind: "wtitem"; section: Section; repo: RepoWorktrees; item: WorktreeItem }
 
 export function App({
   snapshot,
@@ -50,6 +61,7 @@ export function App({
   const [help, setHelp] = useState(false)
   const [log, setLog] = useState(false)
   const [showIdle, setShowIdle] = useState(false)
+  const [notifyOn, setNotifyOn] = useState(true)
   const [events, setEvents] = useState<Transition[]>([])
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastIdx = useRef(0)
@@ -78,7 +90,14 @@ export function App({
   rows.push({ sid: "h-servers", kind: "header", section: "servers" })
   if (open.servers) snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
   rows.push({ sid: "h-worktrees", kind: "header", section: "worktrees" })
-  if (open.worktrees) snap.worktrees.forEach((w) => rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w }))
+  if (open.worktrees)
+    snap.worktrees.forEach((w) => {
+      rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w })
+      if (openRows.has(`w-${w.repo}`))
+        w.items.forEach((it) =>
+          rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "worktrees", repo: w, item: it }),
+        )
+    })
 
   // selection follows identity, not position — re-sorts never move it under you
   const found = rows.findIndex((r) => r.sid === selSid)
@@ -111,10 +130,10 @@ export function App({
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(""), 2800)
   }
-  const refresh = async () => {
+  const refresh = async (silent = false) => {
     try {
       setSnap(await collect())
-      flash("refreshed")
+      if (!silent) flash("refreshed")
     } catch {
       /* keep last good */
     }
@@ -165,14 +184,26 @@ export function App({
   }, [curSid, rows.length])
 
   // flight recorder: record status flips (seed silently on the first snapshot)
+  // + tap on the shoulder when an agent starts needing you
   useEffect(() => {
     if (snap.agents.length === 0 && !prevStatuses.current) return
     if (prevStatuses.current) {
       const trs = diffTransitions(prevStatuses.current, snap.agents, Date.now())
-      if (trs.length) setEvents((e) => [...e, ...trs].slice(-100))
+      if (trs.length) {
+        setEvents((e) => [...e, ...trs].slice(-100))
+        if (live && notifyOn) {
+          for (const tr of trs) {
+            if (tr.from === undefined) continue // appearances aren't news
+            if (tr.to !== "waiting" && tr.to !== "error") continue
+            const a = snap.agents.find((x) => x.id === tr.id)
+            const body = a?.question ?? (tr.to === "error" ? "turn failed" : "needs your input")
+            void notify(`fleet — ${tr.project}`, body)
+          }
+        }
+      }
     }
     prevStatuses.current = new Map(snap.agents.map((a) => [a.id, a.status]))
-  }, [snap])
+  }, [snap, live, notifyOn])
 
   useKeyboard((key) => {
     const k = key.name
@@ -198,19 +229,21 @@ export function App({
 
     if (k === "j" || k === "down") move(1)
     else if (k === "k" || k === "up") move(-1)
-    else if (k === "g") setSelSid(rows[0]?.sid ?? "h-agents")
-    else if (k === "G") setSelSid(rows[rows.length - 1]?.sid ?? "h-agents")
+    // shifted letters arrive as lowercase name + shift flag
+    else if (k === "g" || k === "G")
+      setSelSid((k === "G" || key.shift ? rows[rows.length - 1] : rows[0])?.sid ?? "h-agents")
     else if (k === "right" || k === "l") {
       if (!cur) return
       if (cur.kind === "header") {
         if (!open[cur.section]) toggleSection(cur.section)
         else move(1)
-      } else if (cur.kind !== "worktree") setRowOpen(cur.sid, true)
+      } else if (cur.kind !== "wtitem") setRowOpen(cur.sid, true)
     } else if (k === "left" || k === "h") {
       if (!cur) return
       if (cur.kind === "header") {
         if (open[cur.section]) toggleSection(cur.section)
-      } else if (openRows.has(cur.sid)) setRowOpen(cur.sid, false)
+      } else if (cur.kind === "wtitem") setSelSid(`w-${cur.repo.repo}`)
+      else if (openRows.has(cur.sid)) setRowOpen(cur.sid, false)
       else {
         const idx = rows.findIndex((r) => r.kind === "header" && r.section === cur.section)
         if (idx >= 0) setSelSid(rows[idx].sid)
@@ -219,7 +252,37 @@ export function App({
     else if (k === "return" || k === "space") {
       if (!cur) return
       if (cur.kind === "header") toggleSection(cur.section)
-      else if (cur.kind !== "worktree") setRowOpen(cur.sid, !openRows.has(cur.sid))
+      else if (cur.kind !== "wtitem") setRowOpen(cur.sid, !openRows.has(cur.sid))
+    } else if (k === "o") {
+      if (cur?.kind === "agent") {
+        void focusClaude(cur.agent.kind === "claude" ? cur.agent.id : undefined)
+        flash("opening Claude…")
+      } else if (cur?.kind === "server") {
+        void openServer(cur.server.port)
+        flash(`opening localhost:${cur.server.port}`)
+      }
+    } else if (k === "p") {
+      if (cur?.kind === "wtitem") {
+        const { repo, item } = cur
+        if (item.dirty > 0) flash(`${item.name} has ${item.dirty} dirty files — not pruning`)
+        else if (snap.agents.some((a) => a.cwd === item.path)) flash(`an agent is running in ${item.name}`)
+        else
+          setConfirm({
+            label: `prune ${repo.repo}/${item.name} (clean, ${item.ageDays === 0 ? "today" : `${item.ageDays}d`})?`,
+            run: () => {
+              void pruneWorktree(repo.path, item.path).then((ok) => {
+                flash(ok ? `pruned ${item.name}` : `prune failed — ${item.name}`)
+                invalidateWorktrees()
+                void refresh(true)
+              })
+            },
+          })
+      }
+    } else if (k === "n") {
+      setNotifyOn((v) => {
+        flash(v ? "notifications off" : "notifications on")
+        return !v
+      })
     } else if (k === "c") {
       if (cur?.kind === "agent") {
         void copyResume(cur.agent.id)
@@ -260,16 +323,22 @@ export function App({
         ? "fold"
         : "unfold"
       : cur.kind === "worktree"
-        ? "select"
-        : openRows.has(cur.sid)
+        ? openRows.has(cur.sid)
           ? "collapse"
-          : "details"
+          : "trees"
+        : cur.kind === "wtitem"
+          ? "select"
+          : openRows.has(cur.sid)
+            ? "collapse"
+            : "details"
 
   const hints: [string, string][] = short
     ? [["?", "help"]]
     : (() => {
-        const h: [string, string][] = [["↑↓", "move"], ["⏎", primary]]
-        if (cur?.kind === "agent" || cur?.kind === "server") h.push(["c", "copy"], ["x", "kill"])
+        const h: [string, string][] = [["↑↓", "move"]]
+        if (cur?.kind !== "wtitem") h.push(["⏎", primary])
+        if (cur?.kind === "agent" || cur?.kind === "server") h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
+        if (cur?.kind === "wtitem") h.push(["p", "prune"])
         if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
         if (events.length > 0) h.push(["t", "log"])
         h.push(["?", "help"], ["q", "quit"])
@@ -361,8 +430,25 @@ export function App({
             >
               {snap.worktrees.length
                 ? snap.worktrees.map((w) => (
-                    <box key={`w-${w.repo}`} id={`w-${w.repo}`}>
-                      <WorktreeCard wt={w} selected={curSid === `w-${w.repo}`} />
+                    <box key={`w-${w.repo}`} flexDirection="column">
+                      <box id={`w-${w.repo}`}>
+                        <WorktreeCard
+                          wt={w}
+                          selected={curSid === `w-${w.repo}`}
+                          expanded={openRows.has(`w-${w.repo}`)}
+                        />
+                      </box>
+                      {openRows.has(`w-${w.repo}`)
+                        ? w.items.map((it) => (
+                            <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
+                              <WorktreeItemRow
+                                item={it}
+                                selected={curSid === `wi-${w.repo}-${it.name}`}
+                                width={cardWidth}
+                              />
+                            </box>
+                          ))
+                        : null}
                     </box>
                   ))
                 : null}

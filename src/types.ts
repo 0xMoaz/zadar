@@ -63,10 +63,23 @@ export interface SystemStat {
   memHistory: number[]
 }
 
+export interface WorktreeItem {
+  name: string
+  branch: string
+  /** dirty file count, 0 = clean (prunable) */
+  dirty: number
+  /** days since the worktree directory last changed */
+  ageDays: number
+  path: string
+}
+
 export interface RepoWorktrees {
   repo: string
+  /** absolute repo path (prune target) */
+  path: string
   total: number
   changed: number
+  items: WorktreeItem[]
 }
 
 export interface Snapshot {
