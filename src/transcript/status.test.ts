@@ -1,0 +1,110 @@
+import { describe, expect, test } from "bun:test"
+import { inferStatus, ACTIVE_SEC, APPROVAL_SEC, READY_SEC } from "./status"
+
+const asst = (content: any[], stop: string | null = null) => ({
+  type: "assistant",
+  message: { stop_reason: stop, content },
+})
+const toolUse = (id: string, name: string, input: any = {}) => ({ type: "tool_use", id, name, input })
+const toolResult = (id: string, isError = false) => ({
+  type: "user",
+  message: { content: [{ type: "tool_result", tool_use_id: id, is_error: isError }] },
+})
+const userText = (text: string) => ({ type: "user", message: { content: [{ type: "text", text }] } })
+
+describe("waiting on a question", () => {
+  const ask = asst([
+    toolUse("t1", "AskUserQuestion", {
+      questions: [{ question: "Overwrite config?", options: [{ label: "Overwrite" }, { label: "Merge" }] }],
+    }),
+  ])
+
+  test("unanswered AskUserQuestion → waiting, with the literal question and options", () => {
+    const r = inferStatus([ask], 5)
+    expect(r.status).toBe("waiting")
+    expect(r.waitKind).toBe("question")
+    expect(r.question).toBe("Overwrite config?")
+    expect(r.options).toEqual(["Overwrite", "Merge"])
+  })
+
+  test("waiting persists no matter how long it sits", () => {
+    expect(inferStatus([ask], 3600).status).toBe("waiting")
+  })
+
+  test("an answered question is no longer waiting", () => {
+    const r = inferStatus([ask, toolResult("t1")], 5)
+    expect(r.status).toBe("working")
+  })
+})
+
+describe("pending tool calls", () => {
+  const pendingBash = asst([toolUse("t2", "Bash", { command: "bun test" })], "tool_use")
+
+  test("young pending tool → working (long tool legitimately running)", () => {
+    expect(inferStatus([pendingBash], APPROVAL_SEC - 10).status).toBe("working")
+  })
+
+  test("old pending tool → waiting(approval) with the tool label", () => {
+    const r = inferStatus([pendingBash], APPROVAL_SEC + 10)
+    expect(r.status).toBe("waiting")
+    expect(r.waitKind).toBe("approval")
+    expect(r.question).toBe("run bun test")
+  })
+
+  test("a resolved tool call is not pending", () => {
+    const r = inferStatus([pendingBash, toolResult("t2")], APPROVAL_SEC + 10)
+    expect(r.status).not.toBe("waiting")
+  })
+})
+
+describe("ready / idle lifecycle", () => {
+  const done = asst([{ type: "text", text: "All set." }], "end_turn")
+
+  test("finished turn → ready immediately", () => {
+    expect(inferStatus([done], 2).status).toBe("ready")
+  })
+
+  test("finished turn stays ready inside the review window", () => {
+    expect(inferStatus([done], READY_SEC - 60).status).toBe("ready")
+  })
+
+  test("finished turn fades to idle past the window", () => {
+    expect(inferStatus([done], READY_SEC + 60).status).toBe("idle")
+  })
+
+  test("a new user prompt after end_turn → working again", () => {
+    expect(inferStatus([done, userText("next task please")], 5).status).toBe("working")
+  })
+
+  test("bookkeeping events after end_turn don't break ready", () => {
+    const r = inferStatus([done, { type: "file-history-snapshot" }, { type: "summary" }], 60)
+    expect(r.status).toBe("ready")
+  })
+})
+
+describe("error detection", () => {
+  const failed = [asst([toolUse("t3", "Bash", { command: "bun build" })]), toolResult("t3", true)]
+
+  test("turn that died on a failed tool → error once quiet", () => {
+    expect(inferStatus(failed, ACTIVE_SEC + 30).status).toBe("error")
+  })
+
+  test("a fresh failed tool result is still working (agent about to react)", () => {
+    expect(inferStatus(failed, 5).status).toBe("working")
+  })
+})
+
+describe("recency fallback", () => {
+  test("streaming text mid-turn → working", () => {
+    expect(inferStatus([asst([{ type: "text", text: "thinking…" }], null)], 10).status).toBe("working")
+  })
+
+  test("quiet with no end_turn → idle (interrupted / stalled)", () => {
+    expect(inferStatus([asst([{ type: "text", text: "…" }], null)], ACTIVE_SEC + 30).status).toBe("idle")
+  })
+
+  test("empty tail follows recency", () => {
+    expect(inferStatus([], 10).status).toBe("working")
+    expect(inferStatus([], ACTIVE_SEC + 30).status).toBe("idle")
+  })
+})

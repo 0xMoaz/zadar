@@ -1,17 +1,26 @@
 export type AgentKind = "claude" | "codex"
-export type AgentStatus = "working" | "waiting" | "idle" | "error"
+export type AgentStatus = "working" | "waiting" | "ready" | "idle" | "error" | "unknown"
+/** why a waiting agent waits: a literal question vs. a pending tool (approval or hung) */
+export type WaitKind = "question" | "approval"
 
 export interface Agent {
   id: string
   pid: number
   kind: AgentKind
   project: string
+  /** worktree name when the session runs inside .claude/worktrees/<wt> */
+  wt?: string
   cwd: string
   branch: string
   model: string
   status: AgentStatus
+  waitKind?: WaitKind
   /** the literal question the agent is blocked on (status === "waiting") */
   question?: string
+  /** AskUserQuestion option labels — pre-decide before you switch */
+  options?: string[]
+  /** live processes that resolved to this session (>1 = shared transcript) */
+  procs: number
   /** one-line "what it's doing now" */
   lastActivity: string
   /** recent activity lines, newest first */
