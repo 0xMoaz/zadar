@@ -3,8 +3,9 @@ import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
 import type { Agent, DevServer, RepoWorktrees, Snapshot } from "./types"
 import { copyResume, copyText, killProcess, resumeCommand } from "./actions"
-import { color } from "./theme"
-import { fmtMem } from "./format"
+import { color, statusColor, statusGlyph } from "./theme"
+import { clock, fmtMem } from "./format"
+import { diffTransitions, type Transition } from "./signal"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeCard } from "./components/WorktreeCard"
@@ -12,6 +13,7 @@ import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
 import { Footer } from "./components/Footer"
 import { HelpOverlay } from "./components/HelpOverlay"
+import { EventLog } from "./components/EventLog"
 import { TextAttributes } from "@opentui/core"
 
 // Hide only genuinely-dormant sessions. A session you touched recently — even if
@@ -46,15 +48,24 @@ export function App({
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
   const [toast, setToast] = useState("")
   const [help, setHelp] = useState(false)
+  const [log, setLog] = useState(false)
   const [showIdle, setShowIdle] = useState(false)
+  const [events, setEvents] = useState<Transition[]>([])
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastIdx = useRef(0)
+  const prevStatuses = useRef<Map<string, Agent["status"]> | null>(null)
   const sbRef = useRef<any>(null)
 
   const idleCount = snap.agents.filter((a) => !isActive(a)).length
   const visibleAgents = showIdle ? snap.agents : snap.agents.filter(isActive)
   const waiting = snap.agents.filter((a) => a.status === "waiting").length
   const ready = snap.agents.filter((a) => a.status === "ready").length
+  const errorN = snap.agents.filter((a) => a.status === "error").length
+  const workingN = snap.agents.filter((a) => a.status === "working").length
+  const worstWait = Math.max(0, ...snap.agents.filter((a) => a.status === "waiting").map((a) => a.idleSec))
+  const fleetBurn = snap.agents.reduce((n, a) => n + (a.burnPerHour ?? 0), 0)
+  // the chrome reports the worst case — the wordmark is readable from across the room
+  const beacon = errorN > 0 || worstWait > 300 ? color.danger : waiting > 0 ? color.attention : color.accent
 
   // sizing tiers — fleet lives in splits; rows and air adapt to the pane
   const cardWidth = Math.max(36, width - 7)
@@ -153,6 +164,16 @@ export function App({
     if (curSid) sbRef.current?.scrollChildIntoView?.(curSid)
   }, [curSid, rows.length])
 
+  // flight recorder: record status flips (seed silently on the first snapshot)
+  useEffect(() => {
+    if (snap.agents.length === 0 && !prevStatuses.current) return
+    if (prevStatuses.current) {
+      const trs = diffTransitions(prevStatuses.current, snap.agents, Date.now())
+      if (trs.length) setEvents((e) => [...e, ...trs].slice(-100))
+    }
+    prevStatuses.current = new Map(snap.agents.map((a) => [a.id, a.status]))
+  }, [snap])
+
   useKeyboard((key) => {
     const k = key.name
     if (confirm) {
@@ -167,7 +188,13 @@ export function App({
       else if (k === "q") quit()
       return
     }
+    if (log) {
+      if (k === "t" || k === "escape") setLog(false)
+      else if (k === "q") quit()
+      return
+    }
     if (k === "?") return setHelp(true)
+    if (k === "t") return setLog(true)
 
     if (k === "j" || k === "down") move(1)
     else if (k === "k" || k === "up") move(-1)
@@ -244,20 +271,31 @@ export function App({
         const h: [string, string][] = [["↑↓", "move"], ["⏎", primary]]
         if (cur?.kind === "agent" || cur?.kind === "server") h.push(["c", "copy"], ["x", "kill"])
         if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+        if (events.length > 0) h.push(["t", "log"])
         h.push(["?", "help"], ["q", "quit"])
         return h
       })()
 
+  // the last few status flips — what you missed while looking away
+  const tickerEvents = events.slice(width > 110 ? -3 : -2)
+
   return (
     <box flexDirection="column" width={width} height={height} paddingLeft={2} paddingRight={2}>
-      {/* header */}
+      {/* header — the beacon: wordmark tints to the worst case, counts tell the story */}
       <box flexShrink={0} flexDirection="row" justifyContent="space-between" paddingTop={dense ? 0 : 1}>
         <text>
-          <span fg={color.accent} attributes={TextAttributes.BOLD}>
+          <span fg={beacon} attributes={TextAttributes.BOLD}>
             fleet
           </span>
+          {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
+          {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}
+          {ready > 0 && <span fg={color.positive}>{`  ◆${ready}`}</span>}
+          {workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
         </text>
-        <text fg={color.dim}>{snap.time || "…"}</text>
+        <text fg={color.dim}>
+          {fleetBurn >= 0.05 ? `$${fleetBurn.toFixed(1)}/h · ` : ""}
+          {snap.time || "…"}
+        </text>
       </box>
       <Rule />
 
@@ -265,6 +303,8 @@ export function App({
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
         {help ? (
           <HelpOverlay />
+        ) : log ? (
+          <EventLog events={events} maxRows={height - 8} />
         ) : (
           <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: dense ? 0 : 1 }}>
             <Pillar
@@ -333,6 +373,20 @@ export function App({
 
       {/* footer */}
       <box flexShrink={0} flexDirection="column">
+        {!short && !dense && tickerEvents.length > 0 && !log && (
+          <text>
+            {tickerEvents.map((e, i) => (
+              <span key={`${e.t}-${e.id}-${i}`}>
+                {i > 0 && <span fg={color.faint}>{"   "}</span>}
+                <span fg={color.faint}>{clock(e.t)} </span>
+                <span fg={color.dim}>{e.project} </span>
+                <span fg={statusColor(e.to)}>
+                  {statusGlyph(e.to)} {e.to}
+                </span>
+              </span>
+            ))}
+          </text>
+        )}
         <Rule />
         <box paddingBottom={dense ? 0 : 1}>
           {confirm ? (

@@ -24,9 +24,20 @@ describe("fmtMem / fmtTokens", () => {
 
 describe("ctxCells", () => {
   test("fills proportionally and clamps", () => {
-    expect(ctxCells(0, 6)).toEqual({ filled: "", trough: "▱▱▱▱▱▱" })
+    expect(ctxCells(0, 6)).toEqual({ filled: "", ghost: "", trough: "▱▱▱▱▱▱" })
     expect(ctxCells(50, 6).filled.length).toBe(3)
-    expect(ctxCells(120, 6)).toEqual({ filled: "▰▰▰▰▰▰", trough: "" })
+    expect(ctxCells(120, 6)).toEqual({ filled: "▰▰▰▰▰▰", ghost: "", trough: "" })
+  })
+
+  test("compaction ghost fills between live and high-water mark", () => {
+    const c = ctxCells(40, 6, 90)
+    expect(c.filled).toBe("▰▰")
+    expect(c.ghost).toBe("▰▰▰")
+    expect(c.trough).toBe("▱")
+  })
+
+  test("ghost below the live fill is ignored", () => {
+    expect(ctxCells(80, 6, 40).ghost).toBe("")
   })
 })
 

@@ -3,7 +3,13 @@ import { discoverAgents, branchOf } from "./collectors/process"
 import { parseClaude } from "./transcript/claude"
 import { collectServers } from "./collectors/servers"
 import { collectWorktrees } from "./collectors/worktrees"
+import { diffOf } from "./collectors/diff"
+import { burnRate, ghostVisible, pushSample, trackGhost, type BurnSample, type GhostState } from "./signal"
 import type { Agent, AgentStatus, Snapshot } from "./types"
+
+// per-session living-signal state (sessions are bounded; pruned to the live set)
+const burns = new Map<string, BurnSample[]>()
+const ghosts = new Map<string, GhostState>()
 
 export const emptySnapshot: Snapshot = {
   time: "",
@@ -54,8 +60,17 @@ export async function collect(): Promise<Snapshot> {
     const { project, wt } = identityOf(p.cwd)
     if (p.kind === "claude") {
       const s = parseClaude(p.cwd, p.model, p.resumeId, now)
+      const id = s?.sessionId ?? String(p.pid)
+      const costUsd = s?.costUsd ?? 0
+      const contextPct = s?.contextPct ?? 0
+
+      const samples = pushSample(burns.get(id) ?? [], now, costUsd)
+      burns.set(id, samples)
+      const g = trackGhost(ghosts.get(id), contextPct, now)
+      ghosts.set(id, g)
+
       agents.push({
-        id: s?.sessionId ?? String(p.pid),
+        id,
         pid: p.pid,
         kind: "claude",
         project,
@@ -70,8 +85,11 @@ export async function collect(): Promise<Snapshot> {
         procs: 1,
         lastActivity: s?.lastActivity ?? "—",
         recent: s?.recent ?? [],
-        contextPct: s?.contextPct ?? 0,
-        costUsd: s?.costUsd ?? 0,
+        contextPct,
+        ctxGhostPct: ghostVisible(g, now),
+        costUsd,
+        burnPerHour: burnRate(samples),
+        diff: await diffOf(p.cwd, now),
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
@@ -115,6 +133,11 @@ export async function collect(): Promise<Snapshot> {
     }
   }
   const unique = [...byId.values()]
+
+  // drop living-signal state for sessions that are gone
+  const liveIds = new Set(unique.map((a) => a.id))
+  for (const k of burns.keys()) if (!liveIds.has(k)) burns.delete(k)
+  for (const k of ghosts.keys()) if (!liveIds.has(k)) ghosts.delete(k)
 
   unique.sort((a, b) => {
     const r = STATUS_RANK[a.status] - STATUS_RANK[b.status]

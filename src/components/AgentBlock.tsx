@@ -12,6 +12,11 @@ const INDENT = "     " // aligns content under the row name (gutter + glyph + sp
  *  - urgency auto-expands: waiting/error rows reveal the literal question /
  *    pending tool / failure beneath (urgency = height, no keystroke needed)
  *  - Enter discloses detail: recent activity, tokens · model · uptime, cwd
+ *
+ * Decoration carries signal: the working glyph brightens only when the
+ * transcript actually advanced this poll (truthful pulse); idle rows fade
+ * with age (typographic decay); a ready row's badge is its diff (+/-);
+ * a faint ghost on the ctx bar marks a fresh compaction's high-water mark.
  */
 export function AgentBlock({
   agent,
@@ -26,9 +31,16 @@ export function AgentBlock({
 }) {
   const waiting = agent.status === "waiting"
   const errored = agent.status === "error"
-  const cells = ctxCells(agent.contextPct, 6)
+  const idle = agent.status === "idle"
+  const cells = ctxCells(agent.contextPct, 6, agent.ctxGhostPct)
   const narrow = width < 70
   const textW = Math.max(20, width - INDENT.length - 2)
+
+  // truthful pulse: bright only if the transcript advanced within ~one poll
+  const pulse = agent.status === "working" && agent.idleSec <= 3
+  const glyphColor = pulse ? color.fg : statusColor(agent.status)
+  // typographic decay: idle rows fade with age
+  const nameColor = idle ? (agent.idleSec > 40 * 60 ? color.faint : color.dim) : color.fg
 
   const name = agent.wt ? `${agent.project}/${agent.wt}` : agent.project
   const urgent = waiting || errored
@@ -43,32 +55,45 @@ export function AgentBlock({
       : []
   const noteLine = urgent && agent.waitKind !== "question" ? agent.question : undefined
 
+  const showDiff = agent.status === "ready" && agent.diff && agent.diff.files > 0
+
   return (
     <box flexDirection="column">
       {/* the row — identity ............ vitals */}
       <box flexDirection="row" justifyContent="space-between">
         <text>
           <span fg={color.accent}>{selected ? glyph.gutter : " "}</span>
-          <span fg={statusColor(agent.status)}>{statusGlyph(agent.status)} </span>
-          <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
+          <span fg={glyphColor}>{statusGlyph(agent.status)} </span>
+          <span fg={nameColor} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {name}
           </span>
-          {!narrow && <span fg={color.dim}>{agent.branch ? ` · ${agent.branch}` : ""}</span>}
+          {!narrow && <span fg={idle ? color.faint : color.dim}>{agent.branch ? ` · ${agent.branch}` : ""}</span>}
           {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
           {agent.kind === "codex" && <span fg={color.faint}>{"  ·codex"}</span>}
         </text>
         {urgent ? (
           <text fg={urgentColor}>{urgentLabel}</text>
+        ) : showDiff ? (
+          <text>
+            <span fg={color.positive}>+{agent.diff!.plus}</span>
+            <span fg={color.danger}> −{agent.diff!.minus}</span>
+            <span fg={color.dim}>
+              {"  "}
+              {agent.diff!.files} {agent.diff!.files === 1 ? "file" : "files"}
+            </span>
+          </text>
         ) : (
           <text>
             {!narrow && (
               <span>
                 <span fg={ctxColor(agent.contextPct)}>{cells.filled}</span>
+                <span fg={color.faint}>{cells.ghost}</span>
                 <span fg={color.faint}>{cells.trough}</span>
               </span>
             )}
             <span fg={ctxColor(agent.contextPct)}> {String(Math.round(agent.contextPct)).padStart(3)}%</span>
-            <span fg={agent.status === "idle" ? color.dim : color.fg}>  {fmtCost(agent.costUsd)}</span>
+            {agent.ctxGhostPct !== undefined && <span fg={color.dim}>⟳</span>}
+            <span fg={idle ? color.dim : color.fg}>  {fmtCost(agent.costUsd)}</span>
           </text>
         )}
       </box>
@@ -113,6 +138,9 @@ export function AgentBlock({
               {agent.model} · {fmtTokens(agent.tokens)} tok · {glyph.clock} {fmtDuration(agent.uptimeSec)} · pid{" "}
               {agent.pid}
             </span>
+            {agent.burnPerHour !== undefined && agent.burnPerHour >= 0.05 && (
+              <span fg={color.dim}> · ${agent.burnPerHour.toFixed(1)}/h</span>
+            )}
             {urgent && (
               <span fg={ctxColor(agent.contextPct)}>
                 {"  ctx "}
@@ -121,6 +149,17 @@ export function AgentBlock({
             )}
             {urgent && <span fg={color.fg}>{"  "}{fmtCost(agent.costUsd)}</span>}
           </text>
+          {agent.diff && agent.diff.files > 0 && !showDiff && (
+            <text>
+              <span fg={color.dim}>{INDENT}uncommitted </span>
+              <span fg={color.positive}>+{agent.diff.plus}</span>
+              <span fg={color.danger}> −{agent.diff.minus}</span>
+              <span fg={color.dim}>
+                {" "}
+                across {agent.diff.files} {agent.diff.files === 1 ? "file" : "files"}
+              </span>
+            </text>
+          )}
           <text fg={color.faint}>
             {INDENT}
             {shorten(agent.cwd)}

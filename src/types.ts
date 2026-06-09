@@ -27,7 +27,13 @@ export interface Agent {
   recent: string[]
   /** 0..100 */
   contextPct: number
+  /** pre-compaction high-water mark, fading ghost on the bar */
+  ctxGhostPct?: number
   costUsd: number
+  /** cost velocity over the last ~10 minutes, $/hour */
+  burnPerHour?: number
+  /** uncommitted change size in the agent's cwd — what it produced for review */
+  diff?: { files: number; plus: number; minus: number }
   tokens: number
   uptimeSec: number
   /** seconds since last transcript activity */

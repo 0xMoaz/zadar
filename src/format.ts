@@ -24,16 +24,31 @@ export function fmtCost(usd: number): string {
   return `$${usd.toFixed(2)}`
 }
 
+/** epoch ms → "14:02" */
+export const clock = (ms: number) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+}
+
 /** replace $HOME prefix with ~ */
 export function shorten(path: string, home = process.env.HOME ?? ""): string {
   return home && path.startsWith(home) ? `~${path.slice(home.length)}` : path
 }
 
-/** context bar cells, split into filled + trough for independent coloring */
-export function ctxCells(pct: number, cells = 6): { filled: string; trough: string } {
-  const clamped = Math.min(100, Math.max(0, pct))
-  const f = Math.round((clamped / 100) * cells)
-  return { filled: "▰".repeat(f), trough: "▱".repeat(cells - f) }
+/**
+ * Context bar cells split for independent coloring. A ghostPct (the
+ * pre-compaction high-water mark) renders as faint filled cells between the
+ * live fill and the trough — "you were up there a minute ago".
+ */
+export function ctxCells(
+  pct: number,
+  cells = 6,
+  ghostPct?: number,
+): { filled: string; ghost: string; trough: string } {
+  const clamp = (n: number) => Math.min(100, Math.max(0, n))
+  const f = Math.round((clamp(pct) / 100) * cells)
+  const g = ghostPct !== undefined ? Math.max(f, Math.round((clamp(ghostPct) / 100) * cells)) : f
+  return { filled: "▰".repeat(f), ghost: "▰".repeat(g - f), trough: "▱".repeat(cells - g) }
 }
 
 const BLOCKS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
