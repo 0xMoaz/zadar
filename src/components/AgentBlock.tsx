@@ -18,12 +18,15 @@ export function AgentBlock({ agent, selected }: { agent: Agent; selected: boolea
           <span fg={statusColor(agent.status)}>{statusGlyph(agent.status)} </span>
           <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {agent.project}
+            {agent.wt ? `/${agent.wt}` : ""}
           </span>
           <span fg={color.dim}>{agent.branch ? ` · ${agent.branch}` : ""}</span>
+          {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
         </text>
         {waiting ? (
           <text fg={waitColor(agent.idleSec)}>
-            {glyph.waiting} waiting · {fmtDuration(agent.idleSec)}
+            {glyph.waiting} {agent.waitKind === "approval" ? "tool pending" : "waiting"} ·{" "}
+            {fmtDuration(agent.idleSec)}
           </text>
         ) : (
           <text fg={color.dim}>
@@ -37,7 +40,11 @@ export function AgentBlock({ agent, selected }: { agent: Agent; selected: boolea
       <box flexDirection="row" justifyContent="space-between">
         <text fg={waiting ? color.fg : color.dim}>
           {indent}
-          {waiting && agent.question ? `"${agent.question}"` : agent.lastActivity}
+          {waiting && agent.question
+            ? agent.waitKind === "approval"
+              ? agent.question
+              : `"${agent.question}"`
+            : agent.lastActivity}
         </text>
         {!waiting && (
           <text fg={color.dim}>
