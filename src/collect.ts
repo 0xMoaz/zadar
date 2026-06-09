@@ -1,4 +1,4 @@
-import { basename } from "node:path"
+import { identityOf, STATUS_RANK } from "./fleetmap"
 import { discoverAgents, branchOf } from "./collectors/process"
 import { parseClaude } from "./transcript/claude"
 import { parseCodex } from "./transcript/codex"
@@ -27,22 +27,6 @@ function prettyModel(m: string): string {
   return oneM ? `${s} 1m` : s
 }
 
-/** Sessions inside .claude/worktrees/<wt> belong to the parent repo — keep both names. */
-export function identityOf(cwd: string): { project: string; wt?: string } {
-  const m = cwd.match(/\/([^/]+)\/\.claude\/worktrees\/([^/]+)\/?$/)
-  if (m) return { project: m[1], wt: m[2] }
-  return { project: basename(cwd) || "?" }
-}
-
-/** triage order: needs you first, then output to review, then the rest */
-const STATUS_RANK: Record<AgentStatus, number> = {
-  waiting: 0,
-  error: 1,
-  ready: 2,
-  working: 3,
-  unknown: 4,
-  idle: 5,
-}
 
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 function hhmm(ms: number): string {
