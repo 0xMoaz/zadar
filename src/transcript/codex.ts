@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { priceFor } from "./pricing"
 import { READY_SEC } from "./status"
 import { headLine, parseTail, tailText } from "./jsonl"
+import { rhythmOf } from "../signal"
 import type { AgentStatus } from "../types"
 
 const HOME = process.env.HOME ?? ""
@@ -18,6 +19,7 @@ export interface CodexSignals {
   tokens: number
   costUsd: number
   idleSec: number
+  rhythm: number[]
   /** plan-quota burn (rate_limits.primary.used_percent) */
   planPct?: number
 }
@@ -138,6 +140,7 @@ export function parseCodex(cwd: string, flagModel: string, nowMs: number, root =
     tokens: total?.total_tokens ?? 0,
     costUsd: total ? codexCost(total) : 0,
     idleSec,
+    rhythm: rhythmOf(tail, nowMs),
     planPct,
   }
 }

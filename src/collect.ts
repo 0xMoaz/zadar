@@ -78,6 +78,7 @@ export async function collect(): Promise<Snapshot> {
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
+        rhythm: s?.rhythm,
       })
     } else {
       // codex — parsed from ~/.codex/sessions (window + totals live in-file)
@@ -113,6 +114,7 @@ export async function collect(): Promise<Snapshot> {
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
+        rhythm: s?.rhythm,
       })
     }
   }

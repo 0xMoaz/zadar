@@ -17,6 +17,7 @@ import {
 import { color, statusColor, statusGlyph } from "./theme"
 import { clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
+import { appendEvents, loadToday } from "./history"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
@@ -81,7 +82,8 @@ export function App({
   const [log, setLog] = useState(false)
   const [showIdle, setShowIdle] = useState(false)
   const [notifyOn, setNotifyOn] = useState(true)
-  const [events, setEvents] = useState<Transition[]>([])
+  // the flight recorder outlives the process — reload today's story on boot
+  const [events, setEvents] = useState<Transition[]>(() => (live ? loadToday(Date.now()) : []))
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastIdx = useRef(0)
   const prevStatuses = useRef<Map<string, Agent["status"]> | null>(null)
@@ -246,7 +248,8 @@ export function App({
     if (prevStatuses.current) {
       const trs = diffTransitions(prevStatuses.current, snap.agents, Date.now())
       if (trs.length) {
-        setEvents((e) => [...e, ...trs].slice(-100))
+        setEvents((e) => [...e, ...trs].slice(-200))
+        if (live) appendEvents(trs)
         if (live && notifyOn) {
           for (const tr of trs) {
             if (tr.from === undefined) continue // appearances aren't news
@@ -489,7 +492,12 @@ export function App({
                   {queue.length === 0 ? (
                     <text>
                       <span fg={color.positive}>✓ </span>
-                      <span fg={color.dim}>nothing needs you</span>
+                      <span fg={color.dim}>
+                        nothing needs you
+                        {events.length > 0
+                          ? ` · ${events.length} ${events.length === 1 ? "flip" : "flips"} today`
+                          : ""}
+                      </span>
                     </text>
                   ) : (
                     queue.map((it) => (

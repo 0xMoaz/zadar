@@ -40,6 +40,8 @@ export interface Agent {
   uptimeSec: number
   /** seconds since last transcript activity */
   idleSec: number
+  /** events-per-bucket over the last ~2 min — the agent's EKG */
+  rhythm?: number[]
 }
 
 export interface DevServer {

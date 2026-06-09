@@ -25,6 +25,20 @@ export function burnRate(samples: BurnSample[]): number {
   return Math.max(0, (last.cost - first.cost) / dtH)
 }
 
+// ── rhythm: the agent's EKG — events per bucket over the recent past ────────
+
+/** count transcript events into time buckets (oldest → newest) for a sparkline */
+export function rhythmOf(tail: { timestamp?: string }[], nowMs: number, buckets = 12, bucketMs = 10_000): number[] {
+  const out = new Array(buckets).fill(0)
+  const start = nowMs - buckets * bucketMs
+  for (const ev of tail) {
+    const ts = ev?.timestamp ? Date.parse(ev.timestamp) : NaN
+    if (!Number.isFinite(ts) || ts < start || ts > nowMs) continue
+    out[Math.min(buckets - 1, Math.floor((ts - start) / bucketMs))]++
+  }
+  return out
+}
+
 // ── transitions: what changed between two snapshots ──────────────────────────
 
 export interface Transition {

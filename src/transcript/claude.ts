@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
 import { inferStatus, toolLabel } from "./status"
 import { parseTail, tailText } from "./jsonl"
+import { rhythmOf } from "../signal"
 import type { AgentStatus, WaitKind } from "../types"
 
 const HOME = process.env.HOME ?? ""
@@ -21,6 +22,7 @@ export interface ClaudeSignals {
   tokens: number
   costUsd: number
   idleSec: number
+  rhythm: number[]
 }
 
 // Claude Code encodes the cwd by replacing every non-alphanumeric char with "-"
@@ -178,5 +180,6 @@ export function parseClaude(
     tokens,
     costUsd: cost,
     idleSec,
+    rhythm: rhythmOf(tail, nowMs),
   }
 }
