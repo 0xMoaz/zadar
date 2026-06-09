@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { identityOf } from "./collect"
+import { identityOf } from "./fleetmap"
 import { etimeToSec } from "./collectors/process"
 import { parseShortstat } from "./collectors/diff"
 
