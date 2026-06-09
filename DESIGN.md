@@ -5,6 +5,17 @@
 > btop, k9s, atuin, glances). Companion to [ARCHITECTURE.md](./ARCHITECTURE.md)
 > (the data layer) and [README.md](./README.md) (the product).
 
+> **v2 addendum (shipped):** the agent row is now ONE calm line at rest with a
+> uniform vitals column; urgency auto-expands beneath it (urgency = height).
+> New states: `◆ ready` (turn finished, badged with its `+/-` diff) and `?`
+> unknown. `▲ waiting` now also covers tools pending > 2m (approval or hung).
+> The wordmark is a beacon (worst-case tint + per-state counts + fleet $/h);
+> the working glyph pulses only on real transcript writes; idle rows decay;
+> compaction leaves a fading ghost on the context bar; a flight-recorder
+> ticker collects every status flip (`t`). Desktop notifications fire on
+> flip-to-waiting with the literal question as the body (`n`). Worktrees
+> drill open for guarded pruning (`p`). Enter discloses; `c` copies; `o` opens.
+
 ## North star
 
 > An always-open terminal pane that, in **under one second of glance**, tells you
