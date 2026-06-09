@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
 import { invalidateWorktrees } from "./collectors/worktrees"
+import { attentionQueue, groupByProject, type AttentionItem, type ProjectGroup } from "./fleetmap"
 import type { Agent, DevServer, RepoWorktrees, Snapshot, WorktreeItem } from "./types"
 import {
   copyResume,
@@ -19,6 +20,8 @@ import { diffTransitions, type Transition } from "./signal"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
+import { QueueItem } from "./components/QueueItem"
+import { ProjectCard } from "./components/ProjectCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
 import { Footer } from "./components/Footer"
@@ -31,11 +34,20 @@ import { TextAttributes } from "@opentui/core"
 const STALE_SEC = 20 * 60
 const isActive = (a: Agent) => a.status !== "idle" || a.idleSec < STALE_SEC
 
-type Section = "agents" | "servers" | "worktrees"
-const LABEL: Record<Section, string> = { agents: "AGENTS", servers: "SERVERS", worktrees: "WORKTREES" }
+type View = "map" | "classic"
+type Section = "queue" | "projects" | "agents" | "servers" | "worktrees"
+const LABEL: Record<Section, string> = {
+  queue: "NEEDS YOU",
+  projects: "PROJECTS",
+  agents: "AGENTS",
+  servers: "SERVERS",
+  worktrees: "WORKTREES",
+}
 
 type Row =
   | { sid: string; kind: "header"; section: Section }
+  | { sid: string; kind: "queue"; section: Section; item: AttentionItem }
+  | { sid: string; kind: "project"; section: Section; group: ProjectGroup }
   | { sid: string; kind: "agent"; section: Section; agent: Agent }
   | { sid: string; kind: "server"; section: Section; server: DevServer }
   | { sid: string; kind: "worktree"; section: Section; wt: RepoWorktrees }
@@ -53,8 +65,15 @@ export function App({
   const { width, height } = useTerminalDimensions()
   const renderer = useRenderer()
   const [snap, setSnap] = useState<Snapshot>(snapshot ?? emptySnapshot)
-  const [selSid, setSelSid] = useState("h-agents")
-  const [open, setOpen] = useState<Record<Section, boolean>>({ agents: true, servers: false, worktrees: false })
+  const [view, setView] = useState<View>("map")
+  const [selSid, setSelSid] = useState("h-queue")
+  const [open, setOpen] = useState<Record<Section, boolean>>({
+    queue: true,
+    projects: true,
+    agents: true,
+    servers: false,
+    worktrees: false,
+  })
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
   const [toast, setToast] = useState("")
@@ -79,25 +98,53 @@ export function App({
   // the chrome reports the worst case — the wordmark is readable from across the room
   const beacon = errorN > 0 || worstWait > 300 ? color.danger : waiting > 0 ? color.attention : color.accent
 
+  const queue = attentionQueue(snap)
+  const groups = groupByProject(snap)
+
   // sizing tiers — fleet lives in splits; rows and air adapt to the pane
   const cardWidth = Math.max(36, width - 7)
   const dense = height < 24
   const short = height < 14
 
-  // flattened, navigable rows — section headers plus the items of expanded sections
-  const rows: Row[] = [{ sid: "h-agents", kind: "header", section: "agents" }]
-  if (open.agents) visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "agents", agent: a }))
-  rows.push({ sid: "h-servers", kind: "header", section: "servers" })
-  if (open.servers) snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
-  rows.push({ sid: "h-worktrees", kind: "header", section: "worktrees" })
-  if (open.worktrees)
-    snap.worktrees.forEach((w) => {
-      rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w })
-      if (openRows.has(`w-${w.repo}`))
-        w.items.forEach((it) =>
-          rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "worktrees", repo: w, item: it }),
-        )
-    })
+  // flattened, navigable rows for the current view
+  const rows: Row[] = []
+  if (view === "map") {
+    rows.push({ sid: "h-queue", kind: "header", section: "queue" })
+    if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
+    rows.push({ sid: "h-projects", kind: "header", section: "projects" })
+    if (open.projects)
+      groups.forEach((g) => {
+        rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
+        if (openRows.has(`pj-${g.key}`)) {
+          g.agents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "projects", agent: a }))
+          g.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "projects", server: s }))
+          if (g.worktrees) {
+            const w = g.worktrees
+            rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "projects", wt: w })
+            if (openRows.has(`w-${w.repo}`))
+              w.items.forEach((it) =>
+                rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
+              )
+          }
+        }
+      })
+  } else {
+    rows.push({ sid: "h-agents", kind: "header", section: "agents" })
+    if (open.agents)
+      visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "agents", agent: a }))
+    rows.push({ sid: "h-servers", kind: "header", section: "servers" })
+    if (open.servers)
+      snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
+    rows.push({ sid: "h-worktrees", kind: "header", section: "worktrees" })
+    if (open.worktrees)
+      snap.worktrees.forEach((w) => {
+        rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w })
+        if (openRows.has(`w-${w.repo}`))
+          w.items.forEach((it) =>
+            rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "worktrees", repo: w, item: it }),
+          )
+      })
+  }
 
   // selection follows identity, not position — re-sorts never move it under you
   const found = rows.findIndex((r) => r.sid === selSid)
@@ -110,6 +157,11 @@ export function App({
   const staleN = snap.servers.filter((s) => s.stale).length
   const dirtyN = snap.worktrees.reduce((n, w) => n + w.changed, 0)
   const summaryFor = (s: Section): string => {
+    if (s === "queue") return queue.length === 0 ? "clear" : `${queue.length} ${queue.length === 1 ? "item" : "items"}`
+    if (s === "projects") {
+      const cost = groups.reduce((n, g) => n + g.cost, 0)
+      return groups.length === 0 ? "none" : `${groups.length} · $${cost.toFixed(2)}`
+    }
     if (s === "agents") {
       if (snap.agents.length === 0) return "none"
       const parts = [`${visibleAgents.length} active`]
@@ -158,6 +210,10 @@ export function App({
     const next = rows[Math.max(0, Math.min(rows.length - 1, selIdx + d))]
     if (next) setSelSid(next.sid)
   }
+
+  // the agent / server a row's actions apply to (queue items carry their target)
+  const targetAgent = cur?.kind === "agent" ? cur.agent : cur?.kind === "queue" ? cur.item.agent : undefined
+  const targetServer = cur?.kind === "server" ? cur.server : cur?.kind === "queue" ? cur.item.server : undefined
 
   useEffect(() => {
     if (!live) return
@@ -226,12 +282,18 @@ export function App({
     }
     if (k === "?") return setHelp(true)
     if (k === "t") return setLog(true)
+    if (k === "v") {
+      const next: View = view === "map" ? "classic" : "map"
+      setView(next)
+      setSelSid(next === "map" ? "h-queue" : "h-agents")
+      return
+    }
 
     if (k === "j" || k === "down") move(1)
     else if (k === "k" || k === "up") move(-1)
     // shifted letters arrive as lowercase name + shift flag
     else if (k === "g" || k === "G")
-      setSelSid((k === "G" || key.shift ? rows[rows.length - 1] : rows[0])?.sid ?? "h-agents")
+      setSelSid((k === "G" || key.shift ? rows[rows.length - 1] : rows[0])?.sid ?? rows[0]?.sid ?? "h-queue")
     else if (k === "right" || k === "l") {
       if (!cur) return
       if (cur.kind === "header") {
@@ -254,12 +316,12 @@ export function App({
       if (cur.kind === "header") toggleSection(cur.section)
       else if (cur.kind !== "wtitem") setRowOpen(cur.sid, !openRows.has(cur.sid))
     } else if (k === "o") {
-      if (cur?.kind === "agent") {
-        void focusClaude(cur.agent.kind === "claude" ? cur.agent.id : undefined)
+      if (targetAgent) {
+        void focusClaude(targetAgent.kind === "claude" ? targetAgent.id : undefined)
         flash("opening Claude…")
-      } else if (cur?.kind === "server") {
-        void openServer(cur.server.port)
-        flash(`opening localhost:${cur.server.port}`)
+      } else if (targetServer) {
+        void openServer(targetServer.port)
+        flash(`opening localhost:${targetServer.port}`)
       }
     } else if (k === "p") {
       if (cur?.kind === "wtitem") {
@@ -284,32 +346,35 @@ export function App({
         return !v
       })
     } else if (k === "c") {
-      if (cur?.kind === "agent") {
-        void copyResume(cur.agent.id)
-        flash(`copied  ${resumeCommand(cur.agent.id.slice(0, 8) + "…")}`)
-      } else if (cur?.kind === "server") {
-        void copyText(`http://localhost:${cur.server.port}`)
-        flash(`copied  localhost:${cur.server.port}`)
+      if (targetAgent) {
+        void copyResume(targetAgent.id)
+        flash(`copied  ${resumeCommand(targetAgent.id.slice(0, 8) + "…")}`)
+      } else if (targetServer) {
+        void copyText(`http://localhost:${targetServer.port}`)
+        flash(`copied  localhost:${targetServer.port}`)
       }
     } else if (k === "x") {
-      if (cur?.kind === "agent")
+      if (targetAgent) {
+        const a = targetAgent
         setConfirm({
-          label: `kill ${cur.agent.project} · pid ${cur.agent.pid}?`,
+          label: `kill ${a.project} · pid ${a.pid}?`,
           run: () => {
-            void killProcess(cur.agent.pid).then((ok) =>
-              flash(ok ? `killed pid ${cur.agent.pid}` : `kill failed — pid ${cur.agent.pid} still alive`),
+            void killProcess(a.pid).then((ok) =>
+              flash(ok ? `killed pid ${a.pid}` : `kill failed — pid ${a.pid} still alive`),
             )
           },
         })
-      else if (cur?.kind === "server")
+      } else if (targetServer) {
+        const s = targetServer
         setConfirm({
-          label: `kill server :${cur.server.port} · pid ${cur.server.pid}?`,
+          label: `kill server :${s.port} · pid ${s.pid}?`,
           run: () => {
-            void killProcess(cur.server.pid).then((ok) =>
-              flash(ok ? `killed :${cur.server.port}` : `kill failed — :${cur.server.port} still alive`),
+            void killProcess(s.pid).then((ok) =>
+              flash(ok ? `killed :${s.port}` : `kill failed — :${s.port} still alive`),
             )
           },
         })
+      }
     } else if (k === "r") {
       if (live) void refresh()
     } else if (k === "q") quit()
@@ -322,24 +387,34 @@ export function App({
       ? open[cur.section]
         ? "fold"
         : "unfold"
-      : cur.kind === "worktree"
+      : cur.kind === "queue"
         ? openRows.has(cur.sid)
           ? "collapse"
-          : "trees"
-        : cur.kind === "wtitem"
-          ? "select"
-          : openRows.has(cur.sid)
+          : "inspect"
+        : cur.kind === "project"
+          ? openRows.has(cur.sid)
             ? "collapse"
-            : "details"
+            : "open"
+          : cur.kind === "worktree"
+            ? openRows.has(cur.sid)
+              ? "collapse"
+              : "trees"
+            : cur.kind === "wtitem"
+              ? "select"
+              : openRows.has(cur.sid)
+                ? "collapse"
+                : "details"
 
   const hints: [string, string][] = short
     ? [["?", "help"]]
     : (() => {
         const h: [string, string][] = [["↑↓", "move"]]
         if (cur?.kind !== "wtitem") h.push(["⏎", primary])
-        if (cur?.kind === "agent" || cur?.kind === "server") h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
+        if (targetAgent || targetServer) h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
         if (cur?.kind === "wtitem") h.push(["p", "prune"])
-        if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+        if (view === "classic" && (idleCount > 0 || showIdle))
+          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+        h.push(["v", view === "map" ? "classic" : "map"])
         if (events.length > 0) h.push(["t", "log"])
         h.push(["?", "help"], ["q", "quit"])
         return h
@@ -347,6 +422,31 @@ export function App({
 
   // the last few status flips — what you missed while looking away
   const tickerEvents = events.slice(width > 110 ? -3 : -2)
+
+  const renderAgent = (a: Agent) => (
+    <box key={`a-${a.id}`} id={`a-${a.id}`}>
+      <AgentBlock agent={a} selected={curSid === `a-${a.id}`} expanded={openRows.has(`a-${a.id}`)} width={cardWidth} />
+    </box>
+  )
+  const renderServer = (s: DevServer) => (
+    <box key={`s-${s.pid}`} id={`s-${s.pid}`}>
+      <ServerCard server={s} selected={curSid === `s-${s.pid}`} expanded={openRows.has(`s-${s.pid}`)} width={cardWidth} />
+    </box>
+  )
+  const renderWorktree = (w: RepoWorktrees) => (
+    <box key={`w-${w.repo}`} flexDirection="column">
+      <box id={`w-${w.repo}`}>
+        <WorktreeCard wt={w} selected={curSid === `w-${w.repo}`} expanded={openRows.has(`w-${w.repo}`)} />
+      </box>
+      {openRows.has(`w-${w.repo}`)
+        ? w.items.map((it) => (
+            <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
+              <WorktreeItemRow item={it} selected={curSid === `wi-${w.repo}-${it.name}`} width={cardWidth} />
+            </box>
+          ))
+        : null}
+    </box>
+  )
 
   return (
     <box flexDirection="column" width={width} height={height} paddingLeft={2} paddingRight={2}>
@@ -376,83 +476,108 @@ export function App({
           <EventLog events={events} maxRows={height - 8} />
         ) : (
           <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: dense ? 0 : 1 }}>
-            <Pillar
-              id="h-agents"
-              label={LABEL.agents}
-              summary={summaryFor("agents")}
-              expanded={open.agents}
-              selected={curSid === "h-agents"}
-              dense={dense}
-            >
-              {visibleAgents.length
-                ? visibleAgents.map((a) => (
-                    <box key={`a-${a.id}`} id={`a-${a.id}`}>
-                      <AgentBlock
-                        agent={a}
-                        selected={curSid === `a-${a.id}`}
-                        expanded={openRows.has(`a-${a.id}`)}
-                        width={cardWidth}
-                      />
-                    </box>
-                  ))
-                : null}
-            </Pillar>
-
-            <Pillar
-              id="h-servers"
-              label={LABEL.servers}
-              summary={summaryFor("servers")}
-              expanded={open.servers}
-              selected={curSid === "h-servers"}
-              dense={dense}
-            >
-              {snap.servers.length
-                ? snap.servers.map((s) => (
-                    <box key={`s-${s.pid}`} id={`s-${s.pid}`}>
-                      <ServerCard
-                        server={s}
-                        selected={curSid === `s-${s.pid}`}
-                        expanded={openRows.has(`s-${s.pid}`)}
-                        width={cardWidth}
-                      />
-                    </box>
-                  ))
-                : null}
-            </Pillar>
-
-            <Pillar
-              id="h-worktrees"
-              label={LABEL.worktrees}
-              summary={summaryFor("worktrees")}
-              expanded={open.worktrees}
-              selected={curSid === "h-worktrees"}
-              dense={dense}
-            >
-              {snap.worktrees.length
-                ? snap.worktrees.map((w) => (
-                    <box key={`w-${w.repo}`} flexDirection="column">
-                      <box id={`w-${w.repo}`}>
-                        <WorktreeCard
-                          wt={w}
-                          selected={curSid === `w-${w.repo}`}
-                          expanded={openRows.has(`w-${w.repo}`)}
-                        />
+            {view === "map" ? (
+              <>
+                <Pillar
+                  id="h-queue"
+                  label={LABEL.queue}
+                  summary={summaryFor("queue")}
+                  expanded={open.queue}
+                  selected={curSid === "h-queue"}
+                  dense={dense}
+                >
+                  {queue.length === 0 ? (
+                    <text>
+                      <span fg={color.positive}>✓ </span>
+                      <span fg={color.dim}>nothing needs you</span>
+                    </text>
+                  ) : (
+                    queue.map((it) => (
+                      <box key={`q-${it.id}`} flexDirection="column">
+                        <box id={`q-${it.id}`}>
+                          <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} />
+                        </box>
+                        {openRows.has(`q-${it.id}`) && it.agent ? (
+                          <box paddingTop={dense ? 0 : 1}>
+                            <AgentBlock agent={it.agent} selected={false} expanded width={cardWidth} />
+                          </box>
+                        ) : openRows.has(`q-${it.id}`) && it.server ? (
+                          <box paddingTop={dense ? 0 : 1}>
+                            <ServerCard server={it.server} expanded width={cardWidth} />
+                          </box>
+                        ) : null}
                       </box>
-                      {openRows.has(`w-${w.repo}`)
-                        ? w.items.map((it) => (
-                            <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
-                              <WorktreeItemRow
-                                item={it}
-                                selected={curSid === `wi-${w.repo}-${it.name}`}
-                                width={cardWidth}
-                              />
+                    ))
+                  )}
+                </Pillar>
+
+                <Pillar
+                  id="h-projects"
+                  label={LABEL.projects}
+                  summary={summaryFor("projects")}
+                  expanded={open.projects}
+                  selected={curSid === "h-projects"}
+                  dense={dense}
+                >
+                  {groups.length
+                    ? groups.map((g) => (
+                        <box key={`pj-${g.key}`} flexDirection="column">
+                          <box id={`pj-${g.key}`}>
+                            <ProjectCard
+                              group={g}
+                              selected={curSid === `pj-${g.key}`}
+                              expanded={openRows.has(`pj-${g.key}`)}
+                              width={cardWidth}
+                            />
+                          </box>
+                          {openRows.has(`pj-${g.key}`) ? (
+                            <box paddingTop={dense ? 0 : 1} paddingLeft={2} flexDirection="column" gap={dense ? 0 : 1}>
+                              {g.agents.map(renderAgent)}
+                              {g.servers.map(renderServer)}
+                              {g.worktrees ? renderWorktree(g.worktrees) : null}
                             </box>
-                          ))
-                        : null}
-                    </box>
-                  ))
-                : null}
-            </Pillar>
+                          ) : null}
+                        </box>
+                      ))
+                    : null}
+                </Pillar>
+              </>
+            ) : (
+              <>
+                <Pillar
+                  id="h-agents"
+                  label={LABEL.agents}
+                  summary={summaryFor("agents")}
+                  expanded={open.agents}
+                  selected={curSid === "h-agents"}
+                  dense={dense}
+                >
+                  {visibleAgents.length ? visibleAgents.map(renderAgent) : null}
+                </Pillar>
+
+                <Pillar
+                  id="h-servers"
+                  label={LABEL.servers}
+                  summary={summaryFor("servers")}
+                  expanded={open.servers}
+                  selected={curSid === "h-servers"}
+                  dense={dense}
+                >
+                  {snap.servers.length ? snap.servers.map(renderServer) : null}
+                </Pillar>
+
+                <Pillar
+                  id="h-worktrees"
+                  label={LABEL.worktrees}
+                  summary={summaryFor("worktrees")}
+                  expanded={open.worktrees}
+                  selected={curSid === "h-worktrees"}
+                  dense={dense}
+                >
+                  {snap.worktrees.length ? snap.worktrees.map(renderWorktree) : null}
+                </Pillar>
+              </>
+            )}
           </scrollbox>
         )}
       </box>
