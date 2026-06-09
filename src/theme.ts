@@ -36,6 +36,8 @@ export const glyph = {
   working: "●",
   idle: "○",
   waiting: "▲",
+  ready: "◆",
+  unknown: "?",
   error: "✕",
   clock: "◷",
   check: "✓",
@@ -52,6 +54,8 @@ export function statusColor(s: AgentStatus): RGBA {
       return color.attention
     case "error":
       return color.danger
+    case "ready":
+      return color.positive // the one green in the resting UI: output awaiting your review
     default:
       return color.dim
   }
@@ -63,6 +67,10 @@ export function statusGlyph(s: AgentStatus): string {
       return glyph.working
     case "waiting":
       return glyph.waiting
+    case "ready":
+      return glyph.ready
+    case "unknown":
+      return glyph.unknown
     case "error":
       return glyph.error
     default:
