@@ -2,6 +2,7 @@ import { readdirSync, statSync, openSync, readSync, closeSync } from "node:fs"
 import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
 import { inferStatus, toolLabel } from "./status"
+import { parseTail, tailText } from "./jsonl"
 import type { AgentStatus, WaitKind } from "../types"
 
 const HOME = process.env.HOME ?? ""
@@ -51,36 +52,6 @@ export function activeSession(
     if (!best || mt > best.mtimeMs) best = { path: p, mtimeMs: mt, id: f.replace(/\.jsonl$/, "") }
   }
   return best
-}
-
-function tailText(path: string, bytes = 96 * 1024): string {
-  const fd = openSync(path, "r")
-  try {
-    const size = statSync(path).size
-    const start = Math.max(0, size - bytes)
-    const len = size - start
-    if (len <= 0) return ""
-    const buf = Buffer.alloc(len)
-    readSync(fd, buf, 0, len, start)
-    return buf.toString("utf8")
-  } finally {
-    closeSync(fd)
-  }
-}
-
-function parseTail(text: string): any[] {
-  const lines = text.split("\n")
-  lines.shift() // drop possibly-partial first line
-  const out: any[] = []
-  for (const l of lines) {
-    if (!l.trim()) continue
-    try {
-      out.push(JSON.parse(l))
-    } catch {
-      /* skip partial / malformed */
-    }
-  }
-  return out
 }
 
 // ── incremental cost: sum assistant usage over the whole file, by byte offset ──
