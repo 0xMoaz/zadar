@@ -17,7 +17,7 @@ import { TextAttributes } from "@opentui/core"
 // Hide only genuinely-dormant sessions. A session you touched recently — even if
 // it just finished a turn and is awaiting you — stays visible. Toggle with `i`.
 const STALE_SEC = 20 * 60
-const isActive = (a: Agent) => a.status === "working" || a.status === "waiting" || a.idleSec < STALE_SEC
+const isActive = (a: Agent) => a.status !== "idle" || a.idleSec < STALE_SEC
 
 type Section = "agents" | "servers" | "worktrees"
 const LABEL: Record<Section, string> = { agents: "AGENTS", servers: "SERVERS", worktrees: "WORKTREES" }
@@ -187,16 +187,18 @@ export function App({
         setConfirm({
           label: `kill ${cur.agent.project} · pid ${cur.agent.pid}?`,
           run: () => {
-            void killProcess(cur.agent.pid)
-            flash(`killed pid ${cur.agent.pid}`)
+            void killProcess(cur.agent.pid).then((ok) =>
+              flash(ok ? `killed pid ${cur.agent.pid}` : `kill failed — pid ${cur.agent.pid} still alive`),
+            )
           },
         })
       else if (cur?.kind === "server")
         setConfirm({
           label: `kill server :${cur.server.port} · pid ${cur.server.pid}?`,
           run: () => {
-            void killProcess(cur.server.pid)
-            flash(`killed :${cur.server.port}`)
+            void killProcess(cur.server.pid).then((ok) =>
+              flash(ok ? `killed :${cur.server.port}` : `kill failed — :${cur.server.port} still alive`),
+            )
           },
         })
     } else if (k === "r") {

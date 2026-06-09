@@ -18,9 +18,15 @@ export async function copyResume(id: string): Promise<void> {
   await copyText(resumeCommand(id))
 }
 
-/** Kill a process. Works in the user's real terminal (the Bash-tool sandbox drops signals). */
-export async function killProcess(pid: number): Promise<void> {
+/**
+ * Kill a process and report whether it actually died — the toast must not lie.
+ * Works in the user's real terminal (the Bash-tool sandbox drops signals).
+ */
+export async function killProcess(pid: number): Promise<boolean> {
   await $`kill ${pid}`.nothrow().quiet()
+  await Bun.sleep(200)
+  const probe = await $`kill -0 ${pid}`.nothrow().quiet()
+  return probe.exitCode !== 0
 }
 
 /** Prune a git worktree (guarded — caller confirms; never on a dirty tree). */
