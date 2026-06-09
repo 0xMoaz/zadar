@@ -1,7 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
-import { color, glyph, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
-import { ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, wrapText } from "../format"
+import { color, glyph, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
+import { ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 
 const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
 const INDENT = "     " // aligns content under the row name (gutter + glyph + space)
@@ -67,7 +67,12 @@ export function AgentBlock({
           <span fg={nameColor} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {name}
           </span>
-          {!narrow && <span fg={idle ? color.faint : color.dim}>{agent.branch ? ` · ${agent.branch}` : ""}</span>}
+          {!narrow && agent.branch ? (
+            <span>
+              <span fg={projectHue(agent.project)}>{" · "}</span>
+              <span fg={idle ? color.faint : color.dim}>{agent.branch}</span>
+            </span>
+          ) : null}
           {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
           {agent.kind === "codex" && <span fg={color.faint}>{"  ·codex"}</span>}
         </text>
@@ -84,6 +89,10 @@ export function AgentBlock({
           </text>
         ) : (
           <text>
+            {/* the EKG: real transcript cadence — dense = cranking, flat = stalled */}
+            {width >= 90 && agent.status === "working" && agent.rhythm && (
+              <span fg={color.dim}>{sparkline(agent.rhythm)}  </span>
+            )}
             {!narrow && (
               <span>
                 <span fg={ctxColor(agent.contextPct)}>{cells.filled}</span>

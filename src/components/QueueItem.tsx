@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { AttentionItem } from "../fleetmap"
-import { color, glyph, waitColor } from "../theme"
+import { color, glyph, projectHue, waitColor } from "../theme"
 import { fmtDuration, wrapText } from "../format"
 import type { RGBA } from "@opentui/core"
 
@@ -50,7 +50,8 @@ export function QueueItem({
           <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {item.project}
           </span>
-          <span fg={item.kind === "question" ? color.fg : color.dim}>{`  ${titleLines[0] ?? ""}`}</span>
+          <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
+          <span fg={item.kind === "question" ? color.fg : color.dim}>{titleLines[0] ?? ""}</span>
         </text>
         {item.ageSec > 0 && <text fg={c}>{fmtDuration(item.ageSec)}</text>}
       </box>
