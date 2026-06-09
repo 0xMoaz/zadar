@@ -34,3 +34,14 @@ alone resolves to STANDARD xterm RGB (teal/olive), not the user's palette.
 A `<scrollbox flexGrow={1}>` defaults to content-size minHeight → it overruns and
 overlaps siblings (garbled footer). Add `minHeight={0} flexBasis={0}`, and group the
 fixed bottom section in its own `flexShrink={0}` box so the middle can't push it off.
+
+## OpenTUI mock input wants KeyCodes names, not key names
+`mockInput.pressKey("return")` types the literal letters r-e-t-u-r-n. Special
+keys use the KeyCodes constants: `pressKey("RETURN")`, `pressKey("ESCAPE")`.
+Also: a bare ESC byte is buffered by the headless parser (escape-sequence
+disambiguation) — toggle overlays closed with their own key in tests.
+
+## Shifted letters arrive as lowercase + shift flag
+`useKeyboard` delivers shift+G as `{name: "g", shift: true}` — matching
+`key.name === "G"` silently never fires. v1's jump-to-last was dead code
+for this reason; headless interaction tests caught it.
