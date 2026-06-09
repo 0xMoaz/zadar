@@ -20,7 +20,22 @@ function prettyModel(m: string): string {
   return oneM ? `${s} 1m` : s
 }
 
-const STATUS_RANK: Record<AgentStatus, number> = { waiting: 0, working: 1, error: 2, idle: 3 }
+/** Sessions inside .claude/worktrees/<wt> belong to the parent repo — keep both names. */
+export function identityOf(cwd: string): { project: string; wt?: string } {
+  const m = cwd.match(/\/([^/]+)\/\.claude\/worktrees\/([^/]+)\/?$/)
+  if (m) return { project: m[1], wt: m[2] }
+  return { project: basename(cwd) || "?" }
+}
+
+/** triage order: needs you first, then output to review, then the rest */
+const STATUS_RANK: Record<AgentStatus, number> = {
+  waiting: 0,
+  error: 1,
+  ready: 2,
+  working: 3,
+  unknown: 4,
+  idle: 5,
+}
 
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 function hhmm(ms: number): string {
@@ -36,7 +51,7 @@ export async function collect(): Promise<Snapshot> {
   const agents: Agent[] = []
   for (const p of procs) {
     const branch = await branchOf(p.cwd)
-    const project = basename(p.cwd) || "?"
+    const { project, wt } = identityOf(p.cwd)
     if (p.kind === "claude") {
       const s = parseClaude(p.cwd, p.model, p.resumeId, now)
       agents.push({
@@ -44,11 +59,15 @@ export async function collect(): Promise<Snapshot> {
         pid: p.pid,
         kind: "claude",
         project,
+        wt,
         cwd: p.cwd,
         branch,
         model: prettyModel(s?.model ?? p.model),
         status: s?.status ?? "idle",
+        waitKind: s?.waitKind,
         question: s?.question,
+        options: s?.options,
+        procs: 1,
         lastActivity: s?.lastActivity ?? "—",
         recent: s?.recent ?? [],
         contextPct: s?.contextPct ?? 0,
@@ -58,17 +77,19 @@ export async function collect(): Promise<Snapshot> {
         idleSec: s?.idleSec ?? 0,
       })
     } else {
-      // codex — iter 4. Show the process so it isn't invisible.
+      // codex — transcript not parsed yet: show the process honestly as unknown.
       agents.push({
         id: String(p.pid),
         pid: p.pid,
         kind: "codex",
         project,
+        wt,
         cwd: p.cwd,
         branch,
         model: prettyModel(p.model) || "codex",
-        status: "working",
-        lastActivity: "—",
+        status: "unknown",
+        procs: 1,
+        lastActivity: "transcript not parsed yet",
         recent: [],
         contextPct: 0,
         costUsd: 0,
@@ -81,11 +102,17 @@ export async function collect(): Promise<Snapshot> {
 
   // dedupe by session id — collapses subagents/duplicate procs that resolve to
   // the same transcript (the "random duplicate sessions" problem). Prefer the
-  // one with the most context (the real owner over a sidechain).
+  // one with the most context (the real owner over a sidechain), but surface
+  // how many live procs share the row instead of hiding them silently.
   const byId = new Map<string, Agent>()
   for (const a of agents) {
     const prev = byId.get(a.id)
-    if (!prev || a.contextPct > prev.contextPct || a.costUsd > prev.costUsd) byId.set(a.id, a)
+    if (!prev) byId.set(a.id, a)
+    else {
+      const keep = a.contextPct > prev.contextPct || a.costUsd > prev.costUsd ? a : prev
+      keep.procs = prev.procs + 1
+      byId.set(a.id, keep)
+    }
   }
   const unique = [...byId.values()]
 
