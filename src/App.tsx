@@ -14,7 +14,7 @@ import {
   pruneWorktree,
   resumeCommand,
 } from "./actions"
-import { color, statusColor, statusGlyph } from "./theme"
+import { color, icon, spinnerFrame, statusColor, statusGlyph } from "./theme"
 import { clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
@@ -103,6 +103,15 @@ export function App({
 
   const queue = attentionQueue(snap)
   const groups = groupByProject(snap)
+
+  // one shared sparkle ticker — every attention item pulses in phase
+  const [tick, setTick] = useState(0)
+  const spinning = queue.some((i) => i.kind === "question" || i.kind === "approval")
+  useEffect(() => {
+    if (!live || !spinning) return
+    const id = setInterval(() => setTick((t) => t + 1), 120)
+    return () => clearInterval(id)
+  }, [live, spinning])
 
   // sizing tiers — fleet lives in splits; rows and air adapt to the pane
   const cardWidth = Math.max(36, width - 7)
@@ -453,7 +462,7 @@ export function App({
       {openRows.has(`w-${w.repo}`)
         ? w.items.map((it) => (
             <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
-              <WorktreeItemRow item={it} selected={curSid === `wi-${w.repo}-${it.name}`} width={cardWidth} />
+              <WorktreeItemRow item={it} repo={w.repo} selected={curSid === `wi-${w.repo}-${it.name}`} width={cardWidth} />
             </box>
           ))
         : null}
@@ -491,7 +500,7 @@ export function App({
         <box flexShrink={0} flexDirection="column">
           <box flexDirection="column" paddingTop={dense ? 0 : 1} paddingBottom={dense ? 0 : 1}>
             {queue.slice(0, dense ? 1 : 2).map((it) => (
-              <QueueStripLine key={it.id} item={it} width={cardWidth} />
+              <QueueStripLine key={it.id} item={it} width={cardWidth} tick={tick} />
             ))}
             {queue.length > (dense ? 1 : 2) && (
               <text fg={color.dim}>{`   +${queue.length - (dense ? 1 : 2)} more — v opens the queue`}</text>
@@ -518,6 +527,8 @@ export function App({
                   expanded={open.queue}
                   selected={curSid === "h-queue"}
                   dense={dense}
+                  icon={queue.length ? spinnerFrame(tick) : undefined}
+                  iconColor={color.attention}
                 >
                   {queue.length === 0 ? (
                     <text>
@@ -533,7 +544,7 @@ export function App({
                     queue.map((it) => (
                       <box key={`q-${it.id}`} flexDirection="column">
                         <box id={`q-${it.id}`}>
-                          <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} />
+                          <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} tick={tick} />
                         </box>
                         {openRows.has(`q-${it.id}`) && it.agent ? (
                           <box paddingTop={dense ? 0 : 1}>
@@ -556,6 +567,7 @@ export function App({
                   expanded={open.projects}
                   selected={curSid === "h-projects"}
                   dense={dense}
+                  icon={icon.repo}
                 >
                   {groups.length
                     ? groups.map((g) => (
@@ -589,6 +601,7 @@ export function App({
                   expanded={open.sessions}
                   selected={curSid === "h-sessions"}
                   dense={dense}
+                  icon={icon.sessions}
                 >
                   {visibleAgents.length ? visibleAgents.map(renderAgent) : null}
                 </Pillar>
@@ -600,6 +613,7 @@ export function App({
                   expanded={open.servers}
                   selected={curSid === "h-servers"}
                   dense={dense}
+                  icon={icon.server}
                 >
                   {snap.servers.length ? snap.servers.map(renderServer) : null}
                 </Pillar>
@@ -611,6 +625,7 @@ export function App({
                   expanded={open.projects}
                   selected={curSid === "h-projects"}
                   dense={dense}
+                  icon={icon.repo}
                 >
                   {groups.length
                     ? groups.map((g) => (
@@ -628,6 +643,7 @@ export function App({
                                 <box key={`wi-${g.key}-${it.name}`} id={`wi-${g.worktrees!.repo}-${it.name}`}>
                                   <WorktreeItemRow
                                     item={it}
+                                    repo={g.worktrees!.repo}
                                     selected={curSid === `wi-${g.worktrees!.repo}-${it.name}`}
                                     width={cardWidth}
                                   />

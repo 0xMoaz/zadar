@@ -71,7 +71,8 @@ describe("home view — sessions first", () => {
     // fold sessions, walk to PROJECTS, unfold, walk to omnipair-webapp (7th), open
     await press(s, "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN")
     let f = s.captureCharFrame()
-    expect(f).toContain("feat-pairing · feat/pairing")
+    expect(f).toContain("feat-pairing")
+    expect(f).toContain("feat/pairing")
     expect(f).toContain("12 dirty · 1d")
     await press(s, "j", "p")
     f = s.captureCharFrame()

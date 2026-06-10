@@ -32,6 +32,21 @@ export function applyTerminalPalette(tc: TerminalColors): void {
   set("faint", p[8] ?? p[7])
 }
 
+// Nerd Font icons (Ghostty ships a built-in NF fallback, so these render
+// even without a patched font). Identity, not decoration — used sparingly.
+export const icon = {
+  branch: "", // oct-git_branch — carries the project hue
+  server: "", // oct-server
+  repo: "", // oct-repo — projects ARE repos
+  sessions: "✳", // the Claude Code asterisk (plain unicode)
+  codex: "⬡", // hexagon echo of the OpenAI mark (plain unicode)
+} as const
+
+// the Claude Code sparkle — motion budget spent ONLY where attention is owed.
+// frame 0 is the prettiest so static captures (smoke/tests) look right.
+const SPINNER = ["✻", "✽", "✻", "✶", "✳", "✢", "·", "✢", "✳", "✶"] as const
+export const spinnerFrame = (tick: number): string => SPINNER[tick % SPINNER.length]
+
 export const glyph = {
   working: "●",
   idle: "○",

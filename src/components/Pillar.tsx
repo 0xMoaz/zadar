@@ -13,6 +13,8 @@ export function Pillar({
   expanded,
   selected,
   dense = false,
+  icon,
+  iconColor,
   children,
 }: {
   id: string
@@ -21,12 +23,21 @@ export function Pillar({
   expanded: boolean
   selected: boolean
   dense?: boolean
+  icon?: string
+  iconColor?: typeof color.faint
   children?: ReactNode
 }) {
   return (
     <box flexDirection="column">
       <box id={id}>
-        <SectionHeader label={label} summary={summary} expanded={expanded} selected={selected} />
+        <SectionHeader
+          label={label}
+          summary={summary}
+          expanded={expanded}
+          selected={selected}
+          icon={icon}
+          iconColor={iconColor}
+        />
       </box>
       {expanded && children ? (
         <box paddingTop={dense ? 0 : 1} paddingLeft={1}>

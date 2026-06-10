@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { AttentionItem } from "../fleetmap"
-import { color, glyph, projectHue, waitColor } from "../theme"
+import { color, glyph, projectHue, spinnerFrame, waitColor } from "../theme"
 import { clip, fmtDuration, wrapText } from "../format"
 import { Stat } from "./Stat"
 import type { RGBA } from "@opentui/core"
@@ -8,13 +8,14 @@ import type { RGBA } from "@opentui/core"
 const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
 const INDENT = "     "
 
-function kindGlyph(item: AttentionItem): { g: string; c: RGBA } {
+function kindGlyph(item: AttentionItem, tick: number): { g: string; c: RGBA } {
   switch (item.kind) {
     case "question":
     case "approval":
-      return { g: glyph.waiting, c: waitColor(item.ageSec) }
+      // the Claude Code sparkle — alive, pending, in phase with its siblings
+      return { g: spinnerFrame(tick), c: waitColor(item.ageSec) }
     case "error":
-      return { g: glyph.error, c: color.danger }
+      return { g: glyph.error, c: color.danger } // errors are dead; motion would lie
     case "ready":
       return { g: glyph.ready, c: color.positive }
     case "server-mem":
@@ -25,10 +26,35 @@ function kindGlyph(item: AttentionItem): { g: string; c: RGBA } {
   }
 }
 
+const KIND_WORD: Record<AttentionItem["kind"], string> = {
+  question: "waiting",
+  approval: "pending",
+  error: "error",
+  ready: "review",
+  "server-mem": "memory",
+  "server-stale": "stale",
+  "ctx-high": "context",
+}
+
+/** the right column: kind word in its color, age bright-digits/grey-units */
+function AgeLabel({ item, c }: { item: AttentionItem; c: RGBA }) {
+  return (
+    <text>
+      <span fg={c}>{KIND_WORD[item.kind]}</span>
+      {item.ageSec > 0 && (
+        <span>
+          <span fg={color.dim}>{" · "}</span>
+          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
+        </span>
+      )}
+    </text>
+  )
+}
+
 /** The strip variant: one fixed line, no chips — urgency as presence. */
-export function QueueStripLine({ item, width }: { item: AttentionItem; width: number }) {
-  const { g, c } = kindGlyph(item)
-  const title = wrapText(item.title, Math.max(16, width - item.project.length - 12), 1)[0] ?? ""
+export function QueueStripLine({ item, width, tick = 0 }: { item: AttentionItem; width: number; tick?: number }) {
+  const { g, c } = kindGlyph(item, tick)
+  const title = wrapText(item.title, Math.max(16, width - item.project.length - 24), 1)[0] ?? ""
   return (
     <box flexDirection="row" justifyContent="space-between">
       <text>
@@ -37,11 +63,7 @@ export function QueueStripLine({ item, width }: { item: AttentionItem; width: nu
         <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
         <span fg={item.kind === "question" ? color.fg : color.dim}>{title}</span>
       </text>
-      {item.ageSec > 0 && (
-        <text>
-          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
-        </text>
-      )}
+      <AgeLabel item={item} c={c} />
     </box>
   )
 }
@@ -56,12 +78,14 @@ export function QueueItem({
   item,
   selected,
   width,
+  tick = 0,
 }: {
   item: AttentionItem
   selected: boolean
   width: number
+  tick?: number
 }) {
-  const { g, c } = kindGlyph(item)
+  const { g, c } = kindGlyph(item, tick)
   const agent = item.agent
   const textW = Math.max(20, width - INDENT.length - 2)
 
@@ -76,18 +100,14 @@ export function QueueItem({
             {item.project}
           </span>
           <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
-          <span fg={color.dim}>{clip(item.title, textW - item.project.length)}</span>
+          <span fg={color.dim}>{clip(item.title, Math.max(16, textW - item.project.length - 12))}</span>
         </text>
-        {item.ageSec > 0 && (
-        <text>
-          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
-        </text>
-      )}
+        <AgeLabel item={item} c={c} />
       </box>
     )
   }
 
-  const taskW = Math.max(12, width - item.project.length - 14)
+  const taskW = Math.max(12, width - item.project.length - 26)
   const bodyLines =
     item.kind === "question" ? wrapText(item.title, textW, 2) : [clip(item.title, textW)]
 
@@ -108,11 +128,7 @@ export function QueueItem({
             </span>
           )}
         </text>
-        {item.ageSec > 0 && (
-        <text>
-          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
-        </text>
-      )}
+        <AgeLabel item={item} c={c} />
       </box>
 
       {/* the ask / failure / review */}

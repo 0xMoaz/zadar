@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
-import { color, glyph, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
+import { color, glyph, icon, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
 import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 import { Stat } from "./Stat"
 
@@ -74,12 +74,12 @@ export function AgentBlock({
           </span>
           {!narrow && agent.branch ? (
             <span>
-              <span fg={projectHue(agent.project)}>{" · "}</span>
+              <span fg={projectHue(agent.project)}>{` ${icon.branch} `}</span>
               <span fg={idle ? color.faint : color.dim}>{clip(agent.branch, 24)}</span>
             </span>
           ) : null}
           {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
-          {agent.kind === "codex" && <span fg={color.faint}>{"  ·codex"}</span>}
+          {agent.kind === "codex" && <span fg={color.faint}>{`  ${icon.codex} codex`}</span>}
         </text>
         {urgent ? (
           <text>

@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { RepoWorktrees, WorktreeItem } from "../types"
-import { color, glyph } from "../theme"
+import { color, glyph, icon, projectHue } from "../theme"
 import { clip } from "../format"
 import { Stat } from "./Stat"
 
@@ -40,10 +40,12 @@ export function WorktreeCard({
 /** One worktree inside a drilled-open repo: name · branch ... state · age. */
 export function WorktreeItemRow({
   item,
+  repo,
   selected = false,
   width,
 }: {
   item: WorktreeItem
+  repo: string
   selected?: boolean
   width: number
 }) {
@@ -56,7 +58,12 @@ export function WorktreeItemRow({
         <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
           {clip(item.name, width < 70 ? 18 : 28)}
         </span>
-        {item.branch && width >= 70 && <span fg={color.dim}>{` · ${clip(item.branch, 24)}`}</span>}
+        {item.branch && width >= 70 && (
+          <span>
+            <span fg={projectHue(repo)}>{` ${icon.branch} `}</span>
+            <span fg={color.dim}>{clip(item.branch, 24)}</span>
+          </span>
+        )}
       </text>
       <text>
         {clean ? (

@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { DevServer } from "../types"
-import { color, glyph, serverMemColor } from "../theme"
+import { color, glyph, icon, projectHue, serverMemColor } from "../theme"
 import { clip, fmtMem, shorten } from "../format"
 import { Stat } from "./Stat"
 
@@ -19,7 +19,6 @@ export function ServerCard({
   const live = !server.stale
   const narrow = width < 70
   const url = narrow ? `:${server.port}` : `localhost:${server.port}`
-  const meta = server.branch && !narrow ? `${server.project} · ${server.branch}` : server.project
   const heavy = server.memKB > 4 * 1024 * 1024
   return (
     <box flexDirection="column">
@@ -30,7 +29,13 @@ export function ServerCard({
           <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {url}
           </span>
-          <span fg={color.dim}>{`  ${clip(meta, narrow ? 14 : 32)}`}</span>
+          <span fg={color.dim}>{`  ${clip(server.project, narrow ? 14 : 16)}`}</span>
+          {server.branch && !narrow ? (
+            <span>
+              <span fg={projectHue(server.project)}>{` ${icon.branch} `}</span>
+              <span fg={color.dim}>{clip(server.branch, 18)}</span>
+            </span>
+          ) : null}
           {!live && <span fg={color.attention}>  stale</span>}
         </text>
         <text>
