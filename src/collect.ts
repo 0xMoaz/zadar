@@ -70,6 +70,7 @@ export async function collect(): Promise<Snapshot> {
         procs: 1,
         task: s?.task,
         lastSaid: s?.lastSaid,
+        lastTool: s?.lastTool,
         lastActivity: s?.lastActivity ?? "—",
         recent: s?.recent ?? [],
         contextPct,

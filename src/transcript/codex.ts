@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { priceFor } from "./pricing"
-import { READY_SEC } from "./status"
+import { READY_SEC, stripMd } from "./status"
 import { headLine, parseTail, tailText } from "./jsonl"
 import { rhythmOf } from "../signal"
 import type { AgentStatus } from "../types"
@@ -105,7 +105,7 @@ export function codexCost(u: {
   return (fresh * p.input + cached * p.cacheRead + (u.output_tokens ?? 0) * p.output) / 1e6
 }
 
-const snippet = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 70)
+const snippet = (t: string) => stripMd(t).replace(/\s+/g, " ").trim().slice(0, 70)
 
 export function parseCodex(cwd: string, flagModel: string, nowMs: number, root = SESS_ROOT): CodexSignals | null {
   const sess = findCodexSession(cwd, root)

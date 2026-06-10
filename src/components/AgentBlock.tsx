@@ -152,14 +152,17 @@ export function AgentBlock({
               <span fg={color.fg}>{l}</span>
             </text>
           ))}
-          {!urgent && agent.lastActivity !== "—" && (
+          {!urgent && agent.lastTool && (
             <text>
-              <span fg={color.faint}>{INDENT}now   </span>
-              <span fg={color.dim}>{clip(agent.lastActivity, textW - 18)}</span>
+              <span fg={color.faint}>
+                {INDENT}
+                {agent.status === "working" ? "now   " : "last  "}
+              </span>
+              <span fg={color.dim}>{clip(agent.lastTool, textW - 18)}</span>
               <span fg={color.faint}> · {fmtDuration(agent.idleSec)} ago</span>
             </text>
           )}
-          {agent.lastSaid && agent.lastSaid !== agent.lastActivity && (
+          {agent.lastSaid && (
             <text>
               <span fg={color.faint}>{INDENT}said  </span>
               <span fg={color.dim}>“{clip(agent.lastSaid, textW - 10)}”</span>

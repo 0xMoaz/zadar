@@ -1,7 +1,7 @@
 import { readdirSync, statSync, openSync, readSync, closeSync } from "node:fs"
 import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
-import { inferStatus, lastSaidOf, taskOf, toolLabel } from "./status"
+import { inferStatus, lastSaidOf, lastToolOf, stripMd, taskOf, toolLabel } from "./status"
 import { parseTail, tailText } from "./jsonl"
 import { rhythmOf } from "../signal"
 import type { AgentStatus, WaitKind } from "../types"
@@ -18,6 +18,7 @@ export interface ClaudeSignals {
   options?: string[]
   task?: string
   lastSaid?: string
+  lastTool?: string
   lastActivity: string
   recent: string[]
   contextPct: number
@@ -117,7 +118,7 @@ export function accrueCost(path: string, fallbackModel: string, mtimeMs: number)
   }
 }
 
-const snippet = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 70)
+const snippet = (t: string) => stripMd(t).replace(/\s+/g, " ").trim().slice(0, 70)
 
 function activityLines(tail: any[]): string[] {
   const lines: string[] = []
@@ -135,6 +136,10 @@ function activityLines(tail: any[]): string[] {
   return lines
 }
 
+// the anchoring prompt can scroll out of the 96KB tail during long agentic
+// turns — once seen (or dug up via a one-time deep read), remember it
+const taskCache = new Map<string, string>()
+
 export function parseClaude(
   cwd: string,
   flagModel: string,
@@ -144,6 +149,13 @@ export function parseClaude(
   const sess = activeSession(cwd, resumeId)
   if (!sess) return null
   const tail = parseTail(tailText(sess.path))
+
+  let task = taskOf(tail)
+  if (!task && !taskCache.has(sess.id)) {
+    task = taskOf(parseTail(tailText(sess.path, 1024 * 1024))) // cold start: dig once
+  }
+  if (task) taskCache.set(sess.id, task)
+  else task = taskCache.get(sess.id)
   const idleSec = Math.max(0, (nowMs - sess.mtimeMs) / 1000)
 
   const lastAssistant = [...tail].reverse().find((e) => e.type === "assistant")
@@ -176,8 +188,9 @@ export function parseClaude(
     waitKind: inferred.waitKind,
     question: inferred.question,
     options: inferred.options,
-    task: taskOf(tail),
+    task,
     lastSaid: lastSaidOf(tail),
+    lastTool: lastToolOf(tail),
     lastActivity,
     recent: acts.slice(0, 4),
     contextPct,

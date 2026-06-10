@@ -34,8 +34,17 @@ export function toolLabel(b: any): string {
 
 const meaningful = (e: any) => e?.type === "user" || e?.type === "assistant"
 
+/** agents speak markdown; the dashboard speaks prose — strip links/code/emphasis */
+export const stripMd = (s: string) =>
+  s
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`+/g, "")
+    .replace(/\*\*|__|(?<![\w*])\*(?!\s)|(?<!\s)\*(?![\w*])/g, "")
+    .replace(/^#+\s+/gm, "")
+
 const squish = (t: string, max: number) => {
-  const s = t.replace(/\s+/g, " ").trim()
+  const s = stripMd(t).replace(/\s+/g, " ").trim()
   return s.length > max ? s.slice(0, max - 1) + "…" : s
 }
 
@@ -50,8 +59,14 @@ export function taskOf(tail: any[], max = 90): string | undefined {
     const ev = tail[i]
     if (ev?.type !== "user" || ev.isSidechain || ev.isMeta) continue
     const c = ev.message?.content
-    if (typeof c !== "string") continue
-    const t = c.trim()
+    // typed prompts are strings; prompts with attachments are arrays of
+    // image+text blocks — but tool results are arrays too, so guard those out
+    let text: string | undefined
+    if (typeof c === "string") text = c
+    else if (Array.isArray(c) && !c.some((b: any) => b?.type === "tool_result")) {
+      text = c.find((b: any) => b?.type === "text" && b.text?.trim())?.text
+    }
+    const t = text?.trim()
     if (!t || t.startsWith("<") || t.startsWith("[")) continue
     return squish(t, max)
   }
@@ -67,6 +82,20 @@ export function lastSaidOf(tail: any[], max = 90): string | undefined {
     if (!Array.isArray(c)) continue
     for (let j = c.length - 1; j >= 0; j--) {
       if (c[j]?.type === "text" && c[j].text?.trim()) return squish(c[j].text, max)
+    }
+  }
+  return undefined
+}
+
+/** the agent's last ACTION — the most recent tool call (the "now/last" row) */
+export function lastToolOf(tail: any[]): string | undefined {
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const ev = tail[i]
+    if (ev?.type !== "assistant" || ev.isSidechain) continue
+    const c = ev.message?.content
+    if (!Array.isArray(c)) continue
+    for (let j = c.length - 1; j >= 0; j--) {
+      if (c[j]?.type === "tool_use") return toolLabel(c[j])
     }
   }
   return undefined

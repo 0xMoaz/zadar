@@ -51,6 +51,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "zee-main-03",
+      lastTool: "edit components/AgentBlock.tsx",
       task: "polish the vitals grid — typography, alignment, honest numbers",
       lastSaid: "The grid is optically locked — bars align and right edges are flush.",
       pid: 21121,
@@ -74,6 +75,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "api-rate-04",
+      lastTool: "run bun test src/limiter.test.ts",
       task: "add a token-bucket rate limiter to the gateway",
       pid: 50412,
       kind: "claude",
@@ -96,6 +98,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "docs-ready-05",
+      lastTool: "write getting-started.mdx",
       task: "write the getting-started guide",
       lastSaid: "Draft complete — build passes, ready for your read.",
       pid: 33110,
@@ -117,6 +120,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "legacy-err-06",
+      lastTool: "run bun test",
       task: "hotfix the NPE in the request handler",
       pid: 41980,
       kind: "claude",
@@ -157,6 +161,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "play-idle-08",
+      lastTool: "read examples/regex.md",
       pid: 39001,
       kind: "claude",
       project: "playground",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { inferStatus, lastSaidOf, taskOf, ACTIVE_SEC, APPROVAL_SEC, READY_SEC } from "./status"
+import { inferStatus, lastSaidOf, lastToolOf, taskOf, ACTIVE_SEC, APPROVAL_SEC, READY_SEC } from "./status"
 
 const asst = (content: any[], stop: string | null = null) => ({
   type: "assistant",
@@ -123,6 +123,14 @@ describe("taskOf — the user's last typed prompt", () => {
   test("no typed prompt in the tail → undefined", () => {
     expect(taskOf([toolResult("t1")])).toBeUndefined()
   })
+
+  test("prompts with attachments (image+text arrays) still count", () => {
+    const withImage = {
+      type: "user",
+      message: { content: [{ type: "image", source: {} }, { type: "text", text: "is that how it should look?" }] },
+    }
+    expect(taskOf([withImage])).toBe("is that how it should look?")
+  })
 })
 
 describe("lastSaidOf — the agent's last words", () => {
@@ -135,8 +143,29 @@ describe("lastSaidOf — the agent's last words", () => {
     expect(lastSaidOf(tail)).toBe("All green — shipping it.")
   })
 
+  test("agents speak markdown; the card speaks prose", () => {
+    const tail = [
+      asst([{ type: "text", text: "Shipped ([`1bb8909`](https://github.com/x/y/commit/1bb8909)) — **100 tests** green." }]),
+    ]
+    expect(lastSaidOf(tail)).toBe("Shipped (1bb8909) — 100 tests green.")
+  })
+
   test("tool-only turns → undefined", () => {
     expect(lastSaidOf([asst([{ type: "tool_use", id: "t1", name: "Read", input: {} }])])).toBeUndefined()
+  })
+})
+
+describe("lastToolOf — the agent's last action", () => {
+  test("finds the most recent tool call across events", () => {
+    const tail = [
+      asst([{ type: "tool_use", id: "t1", name: "Bash", input: { command: "bun test" } }]),
+      asst([{ type: "text", text: "done" }], "end_turn"),
+    ]
+    expect(lastToolOf(tail)).toBe("run bun test")
+  })
+
+  test("no tools yet → undefined", () => {
+    expect(lastToolOf([asst([{ type: "text", text: "thinking" }])])).toBeUndefined()
   })
 })
 

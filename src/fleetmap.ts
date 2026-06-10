@@ -116,7 +116,9 @@ export function attentionQueue(snap: Snapshot): AttentionItem[] {
         label,
         a.diff && a.diff.files > 0
           ? `review +${a.diff.plus} −${a.diff.minus} across ${a.diff.files} ${a.diff.files === 1 ? "file" : "files"}`
-          : `review: ${a.lastActivity}`,
+          : a.lastSaid
+            ? `“${a.lastSaid}”`
+            : `review: ${a.lastActivity}`,
         a.idleSec,
         a,
       )

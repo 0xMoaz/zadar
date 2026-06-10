@@ -25,6 +25,8 @@ export interface Agent {
   task?: string
   /** the agent's last words (most recent assistant text) */
   lastSaid?: string
+  /** the agent's last action (most recent tool call) */
+  lastTool?: string
   /** one-line "what it's doing now" */
   lastActivity: string
   /** recent activity lines, newest first */
