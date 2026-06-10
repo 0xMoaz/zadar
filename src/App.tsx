@@ -29,6 +29,7 @@ import { Rule } from "./components/Rule"
 import { Footer } from "./components/Footer"
 import { HelpOverlay } from "./components/HelpOverlay"
 import { EventLog } from "./components/EventLog"
+import { Stat } from "./components/Stat"
 import { TextAttributes } from "@opentui/core"
 
 // Hide only genuinely-dormant sessions. A session you touched recently — even if
@@ -474,10 +475,13 @@ export function App({
         </text>
         <text>
           {updateVer && <span fg={color.faint}>{`↑${updateVer}  `}</span>}
-          <span fg={color.dim}>
-            {fleetBurn >= 0.05 ? `$${fleetBurn.toFixed(1)}/h · ` : ""}
-            {snap.time || "…"}
-          </span>
+          {fleetBurn >= 0.05 && (
+            <span>
+              <Stat s={`$${fleetBurn.toFixed(1)}/h`} />
+              <span fg={color.dim}>{" · "}</span>
+            </span>
+          )}
+          <span fg={color.dim}>{snap.time || "…"}</span>
         </text>
       </box>
       <Rule />

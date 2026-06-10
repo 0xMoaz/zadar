@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import type { AttentionItem } from "../fleetmap"
 import { color, glyph, projectHue, waitColor } from "../theme"
 import { clip, fmtDuration, wrapText } from "../format"
+import { Stat } from "./Stat"
 import type { RGBA } from "@opentui/core"
 
 const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
@@ -36,7 +37,11 @@ export function QueueStripLine({ item, width }: { item: AttentionItem; width: nu
         <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
         <span fg={item.kind === "question" ? color.fg : color.dim}>{title}</span>
       </text>
-      {item.ageSec > 0 && <text fg={c}>{fmtDuration(item.ageSec)}</text>}
+      {item.ageSec > 0 && (
+        <text>
+          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
+        </text>
+      )}
     </box>
   )
 }
@@ -73,7 +78,11 @@ export function QueueItem({
           <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
           <span fg={color.dim}>{clip(item.title, textW - item.project.length)}</span>
         </text>
-        {item.ageSec > 0 && <text fg={c}>{fmtDuration(item.ageSec)}</text>}
+        {item.ageSec > 0 && (
+        <text>
+          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
+        </text>
+      )}
       </box>
     )
   }
@@ -99,7 +108,11 @@ export function QueueItem({
             </span>
           )}
         </text>
-        {item.ageSec > 0 && <text fg={c}>{fmtDuration(item.ageSec)}</text>}
+        {item.ageSec > 0 && (
+        <text>
+          <Stat s={fmtDuration(item.ageSec)} value={c} unit={color.dim} />
+        </text>
+      )}
       </box>
 
       {/* the ask / failure / review */}
@@ -108,10 +121,8 @@ export function QueueItem({
           <span fg={color.dim}>{INDENT}review </span>
           <span fg={color.positive}>+{agent.diff.plus}</span>
           <span fg={color.danger}> −{agent.diff.minus}</span>
-          <span fg={color.dim}>
-            {" "}
-            across {agent.diff.files} {agent.diff.files === 1 ? "file" : "files"}
-          </span>
+          <span fg={color.dim}> across </span>
+          <Stat s={`${agent.diff.files} ${agent.diff.files === 1 ? "file" : "files"}`} />
         </text>
       ) : (
         bodyLines.map((l, i) => (

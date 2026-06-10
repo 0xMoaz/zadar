@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
 import { color, glyph, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
 import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
+import { Stat } from "./Stat"
 
 const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
 const INDENT = "     " // aligns content under the row name (gutter + glyph + space)
@@ -45,9 +46,7 @@ export function AgentBlock({
   const name = agent.wt ? `${agent.project}/${agent.wt}` : agent.project
   const urgent = waiting || errored
   const urgentColor = errored ? color.danger : waitColor(agent.idleSec)
-  const urgentLabel = errored
-    ? `${glyph.error} ${fmtDuration(agent.idleSec)}`
-    : `${glyph.waiting} ${agent.waitKind === "approval" ? "pending" : "waiting"} · ${fmtDuration(agent.idleSec)}`
+  const urgentWord = errored ? glyph.error : `${glyph.waiting} ${agent.waitKind === "approval" ? "pending" : "waiting"} ·`
 
   const questionLines =
     waiting && agent.waitKind === "question" && agent.question
@@ -83,7 +82,10 @@ export function AgentBlock({
           {agent.kind === "codex" && <span fg={color.faint}>{"  ·codex"}</span>}
         </text>
         {urgent ? (
-          <text fg={urgentColor}>{urgentLabel}</text>
+          <text>
+            <span fg={urgentColor}>{urgentWord} </span>
+            <Stat s={fmtDuration(agent.idleSec)} value={urgentColor} unit={color.dim} />
+          </text>
         ) : showDiff ? (
           <text>
             <span fg={color.positive}>+{agent.diff!.plus}</span>
@@ -106,9 +108,19 @@ export function AgentBlock({
                 <span fg={color.faint}>{cells.trough}</span>
               </span>
             )}
-            <span fg={ctxColor(agent.contextPct)}> {String(Math.round(agent.contextPct)).padStart(3)}%</span>
+            <span> </span>
+            <Stat
+              s={`${String(Math.round(agent.contextPct)).padStart(3)}%`}
+              value={agent.contextPct >= 70 ? ctxColor(agent.contextPct) : idle ? color.dim : color.fg}
+              unit={idle ? color.faint : color.dim}
+            />
             <span fg={color.dim}>{agent.ctxGhostPct !== undefined ? "⟳" : " "}</span>
-            <span fg={idle ? color.dim : color.fg}> {fmtCost(agent.costUsd).padStart(6)}</span>
+            <span> </span>
+            <Stat
+              s={fmtCost(agent.costUsd).padStart(6)}
+              value={idle ? color.dim : color.fg}
+              unit={idle ? color.faint : color.dim}
+            />
           </text>
         )}
       </box>
@@ -159,7 +171,8 @@ export function AgentBlock({
                 {agent.status === "working" ? "now   " : "last  "}
               </span>
               <span fg={color.dim}>{clip(agent.lastTool, textW - 18)}</span>
-              <span fg={color.faint}> · {fmtDuration(agent.idleSec)} ago</span>
+              <span fg={color.faint}> · </span>
+              <Stat s={`${fmtDuration(agent.idleSec)} ago`} value={color.dim} unit={color.faint} />
             </text>
           )}
           {agent.lastSaid && (
@@ -173,31 +186,52 @@ export function AgentBlock({
               <span fg={color.faint}>{INDENT}built </span>
               <span fg={color.positive}>+{agent.diff.plus}</span>
               <span fg={color.danger}> −{agent.diff.minus}</span>
-              <span fg={color.dim}>
-                {" "}
-                across {agent.diff.files} {agent.diff.files === 1 ? "file" : "files"}, uncommitted
-              </span>
+              <span fg={color.dim}> across </span>
+              <Stat s={`${agent.diff.files} ${agent.diff.files === 1 ? "file" : "files"}`} />
+              <span fg={color.dim}>, uncommitted</span>
             </text>
           )}
+          {/* the story above, the vitals below */}
+          <text fg={color.faint}>
+            {INDENT}
+            {"─".repeat(Math.max(12, Math.min(textW, 48)))}
+          </text>
           <text>
-            <span fg={color.dim}>{INDENT}</span>
             <span fg={color.dim}>
-              {agent.model} · {fmtTokens(agent.tokens)} tok · {glyph.clock} {fmtDuration(agent.uptimeSec)} · pid{" "}
-              {agent.pid}
+              {INDENT}
+              {agent.model} ·{" "}
             </span>
+            <Stat s={`${fmtTokens(agent.tokens)} tok`} />
+            <span fg={color.dim}> · {glyph.clock} </span>
+            <Stat s={fmtDuration(agent.uptimeSec)} />
+            <span fg={color.dim}> · </span>
+            <Stat s={`pid ${agent.pid}`} />
             {agent.burnPerHour !== undefined && agent.burnPerHour >= 0.05 && (
-              <span fg={color.dim}> · ${agent.burnPerHour.toFixed(1)}/h</span>
-            )}
-            {agent.planPct !== undefined && (
-              <span fg={agent.planPct >= 80 ? color.attention : color.dim}> · plan {Math.round(agent.planPct)}%</span>
-            )}
-            {urgent && (
-              <span fg={ctxColor(agent.contextPct)}>
-                {"  ctx "}
-                {Math.round(agent.contextPct)}%
+              <span>
+                <span fg={color.dim}> · </span>
+                <Stat s={`$${agent.burnPerHour.toFixed(1)}/h`} />
               </span>
             )}
-            {urgent && <span fg={color.fg}>{"  "}{fmtCost(agent.costUsd)}</span>}
+            {agent.planPct !== undefined && (
+              <span>
+                <span fg={color.dim}> · </span>
+                <Stat
+                  s={`plan ${Math.round(agent.planPct)}%`}
+                  value={agent.planPct >= 80 ? color.attention : color.fg}
+                />
+              </span>
+            )}
+            {urgent && (
+              <span>
+                <span fg={color.dim}>{"  ctx "}</span>
+                <Stat
+                  s={`${Math.round(agent.contextPct)}%`}
+                  value={agent.contextPct >= 70 ? ctxColor(agent.contextPct) : color.fg}
+                />
+                <span> </span>
+                <Stat s={fmtCost(agent.costUsd)} />
+              </span>
+            )}
           </text>
           <text fg={color.faint}>
             {INDENT}

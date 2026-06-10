@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import type { RepoWorktrees, WorktreeItem } from "../types"
 import { color, glyph } from "../theme"
 import { clip } from "../format"
+import { Stat } from "./Stat"
 
 /** One repo's worktrees as a calm one-liner; Enter drills into the trees. */
 export function WorktreeCard({
@@ -61,12 +62,10 @@ export function WorktreeItemRow({
         {clean ? (
           <span fg={color.faint}>clean</span>
         ) : (
-          <span fg={color.attention}>{item.dirty} dirty</span>
+          <Stat s={`${item.dirty} dirty`} value={color.attention} unit={color.dim} />
         )}
-        <span fg={color.dim}>
-          {" · "}
-          {item.ageDays === 0 ? "today" : `${item.ageDays}d`}
-        </span>
+        <span fg={color.dim}>{" · "}</span>
+        {item.ageDays === 0 ? <span fg={color.dim}>today</span> : <Stat s={`${item.ageDays}d`} />}
       </text>
     </box>
   )

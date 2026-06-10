@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import type { DevServer } from "../types"
 import { color, glyph, serverMemColor } from "../theme"
 import { clip, fmtMem, shorten } from "../format"
+import { Stat } from "./Stat"
 
 /** One dev server: a calm one-liner; Enter discloses where it lives. */
 export function ServerCard({
@@ -33,18 +34,18 @@ export function ServerCard({
           {!live && <span fg={color.attention}>  stale</span>}
         </text>
         <text>
-          <span fg={serverMemColor(server.memKB)}>
-            {fmtMem(server.memKB)}
-            {heavy ? ` ${glyph.warn}` : ""}
-          </span>
-          <span fg={color.dim}>{`  ${glyph.clock} ${server.uptime}`}</span>
+          <Stat s={fmtMem(server.memKB)} value={heavy ? serverMemColor(server.memKB) : color.fg} />
+          {heavy && <span fg={serverMemColor(server.memKB)}> {glyph.warn}</span>}
+          <span fg={color.dim}>{`  ${glyph.clock} `}</span>
+          <Stat s={server.uptime} />
         </text>
       </box>
       {expanded && (
         <box flexDirection="column">
-          <text fg={color.dim}>
-            {"     "}pid {server.pid}
-            {server.stale ? " · cwd is gone (orphaned worktree) — safe to kill" : ""}
+          <text>
+            <span fg={color.dim}>{"     "}</span>
+            <Stat s={`pid ${server.pid}`} />
+            {server.stale && <span fg={color.dim}> · cwd is gone (orphaned worktree) — safe to kill</span>}
           </text>
           <text fg={color.faint}>
             {"     "}
