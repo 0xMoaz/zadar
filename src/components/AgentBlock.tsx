@@ -159,7 +159,7 @@ export function AgentBlock({
             <text key={`t${i}`}>
               <span fg={color.faint}>
                 {INDENT}
-                {i === 0 ? "task  " : "      "}
+                {i === 0 ? `${icon.task} task  ` : "        "}
               </span>
               <span fg={color.fg}>{l}</span>
             </text>
@@ -168,7 +168,7 @@ export function AgentBlock({
             <text>
               <span fg={color.faint}>
                 {INDENT}
-                {agent.status === "working" ? "now   " : "last  "}
+                {icon.pulse} {agent.status === "working" ? "now   " : "last  "}
               </span>
               <span fg={color.dim}>{clip(agent.lastTool, textW - 18)}</span>
               <span fg={color.faint}> · </span>
@@ -177,13 +177,13 @@ export function AgentBlock({
           )}
           {agent.lastSaid && (
             <text>
-              <span fg={color.faint}>{INDENT}said  </span>
+              <span fg={color.faint}>{`${INDENT}${icon.comment} said  `}</span>
               <span fg={color.dim}>“{clip(agent.lastSaid, textW - 10)}”</span>
             </text>
           )}
           {agent.diff && agent.diff.files > 0 && (
             <text>
-              <span fg={color.faint}>{INDENT}built </span>
+              <span fg={color.faint}>{`${INDENT}${icon.diff} built `}</span>
               <span fg={color.positive}>+{agent.diff.plus}</span>
               <span fg={color.danger}> −{agent.diff.minus}</span>
               <span fg={color.dim}> across </span>
@@ -235,7 +235,7 @@ export function AgentBlock({
           </text>
           <text fg={color.faint}>
             {INDENT}
-            {shorten(agent.cwd)}
+            {icon.dir} {shorten(agent.cwd)}
           </text>
         </box>
       )}

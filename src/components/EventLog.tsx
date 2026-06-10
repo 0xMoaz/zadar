@@ -12,7 +12,7 @@ export function EventLog({ events, maxRows }: { events: Transition[]; maxRows: n
       border
       borderStyle="rounded"
       borderColor={color.accent}
-      title="activity"
+      title=" activity "
       titleAlignment="left"
       padding={1}
     >

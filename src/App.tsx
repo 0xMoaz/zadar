@@ -14,7 +14,7 @@ import {
   pruneWorktree,
   resumeCommand,
 } from "./actions"
-import { color, icon, spinnerFrame, statusColor, statusGlyph } from "./theme"
+import { color, glyph, icon, spinnerFrame, statusColor, statusGlyph } from "./theme"
 import { clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
@@ -26,7 +26,7 @@ import { QueueItem, QueueStripLine } from "./components/QueueItem"
 import { ProjectCard } from "./components/ProjectCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
-import { Footer } from "./components/Footer"
+import { Footer, type Hint } from "./components/Footer"
 import { HelpOverlay } from "./components/HelpOverlay"
 import { EventLog } from "./components/EventLog"
 import { Stat } from "./components/Stat"
@@ -426,18 +426,19 @@ export function App({
                 ? "collapse"
                 : "details"
 
-  const hints: [string, string][] = short
-    ? [["?", "help"]]
+  const hints: Hint[] = short
+    ? [["?", "help", icon.question]]
     : (() => {
-        const h: [string, string][] = [["↑↓", "move"]]
+        const h: Hint[] = [["↑↓", "move"]]
         if (cur?.kind !== "wtitem") h.push(["⏎", primary])
-        if (targetAgent || targetServer) h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
-        if (cur?.kind === "wtitem") h.push(["p", "prune"])
+        if (targetAgent || targetServer)
+          h.push(["o", "open", icon.open], ["c", "copy", icon.copy], ["x", "kill", icon.kill])
+        if (cur?.kind === "wtitem") h.push(["p", "prune", icon.prune])
         if (view === "home" && (idleCount > 0 || showIdle))
-          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
-        h.push(["v", view === "map" ? "home" : "queue"])
-        if (events.length > 0) h.push(["t", "log"])
-        h.push(["?", "help"], ["q", "quit"])
+          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`, showIdle ? icon.eyeClosed : icon.eye])
+        h.push(["v", view === "map" ? "home" : "queue", icon.view])
+        if (events.length > 0) h.push(["t", "log", icon.history])
+        h.push(["?", "help", icon.question], ["q", "quit", icon.quit])
         return h
       })()
 
@@ -483,7 +484,7 @@ export function App({
           {workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
         </text>
         <text>
-          {updateVer && <span fg={color.faint}>{`↑${updateVer}  `}</span>}
+          {updateVer && <span fg={color.faint}>{`${icon.up} ${updateVer}  `}</span>}
           {fleetBurn >= 0.05 && (
             <span>
               <Stat s={`$${fleetBurn.toFixed(1)}/h`} />
@@ -532,7 +533,7 @@ export function App({
                 >
                   {queue.length === 0 ? (
                     <text>
-                      <span fg={color.positive}>✓ </span>
+                      <span fg={color.positive}>{`${glyph.check} `}</span>
                       <span fg={color.dim}>
                         nothing needs you
                         {events.length > 0

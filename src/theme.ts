@@ -40,6 +40,26 @@ export const icon = {
   repo: "", // oct-repo — projects ARE repos
   sessions: "✳", // the Claude Code asterisk (plain unicode)
   codex: "⬡", // hexagon echo of the OpenAI mark (plain unicode)
+  // footer / action vocabulary
+  open: "", // oct-link_external
+  copy: "", // oct-copy
+  kill: "", // oct-stop
+  prune: "", // oct-trash
+  eye: "", // oct-eye (show idle)
+  eyeClosed: "", // oct-eye_closed (hide idle)
+  view: "", // oct-arrow_switch
+  history: "", // oct-history
+  question: "", // oct-question
+  quit: "", // oct-sign_out
+  bell: "", // oct-bell
+  bellSlash: "", // oct-bell_slash
+  up: "", // oct-arrow_up
+  // story-card labels
+  task: "", // oct-tasklist
+  pulse: "", // oct-pulse
+  comment: "", // oct-comment
+  diff: "", // oct-diff
+  dir: "", // oct-file_directory
 } as const
 
 // the Claude Code sparkle — motion budget spent ONLY where attention is owed.
@@ -54,9 +74,9 @@ export const glyph = {
   ready: "◆",
   unknown: "?",
   error: "✕",
-  clock: "◷",
-  check: "✓",
-  warn: "⚠",
+  clock: "", // oct-clock
+  check: "", // oct-check
+  warn: "", // oct-alert
   gutter: "▎",
   dot: "·",
   expanded: "▾",
