@@ -18,13 +18,14 @@ It's the ambient, terminal-native complement to a desktop console like Readout:
 same data universe, opposite ergonomics — fleet lives in your peripheral vision
 while you work.
 
-**Status:** working OpenTUI app, three generations deep — v1 (`main`): the
-port; v2 (`overhaul/v2-living-fleet`): truthful states + progressive
-disclosure + living signal; v3 (`overhaul/v3-attention-queue`): the attention
-map + **full Codex transcript parsing** (context %, cost, task lifecycle, and
-plan-quota burn read straight from `~/.codex/sessions`). Built on OpenTUI
-0.3.x (Bun + React); the bash scripts in [reference/](./reference/) remain
-the original data contract.
+**Status:** working OpenTUI app, three generations deep — all merged to
+`main`, each tagged so you can `git checkout` any era. `v1`: the port. `v2`:
+truthful states + progressive disclosure + living signal. `v3` (current): the
+attention map + sessions-first home + **full Codex transcript parsing**
+(context %, cost, task lifecycle, and plan-quota burn read straight from
+`~/.codex/sessions`) + a local data API. Built on OpenTUI 0.3.x (Bun +
+React); the bash scripts in [reference/](./reference/) remain the original
+data contract.
 
 ## Install & run
 
@@ -39,6 +40,7 @@ bun install
 bun run fleet                 # live dashboard (inside the repo only)
 bun run smoke                 # headless render at several geometries
 bun test                      # unit + headless interaction suite
+git checkout v1               # any era is one checkout away (v1 · v2 · v3)
 ```
 
 For a global `zefleet` command from any directory:
