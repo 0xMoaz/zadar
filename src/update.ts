@@ -9,6 +9,23 @@ const CACHE = join(process.env.HOME ?? "", ".zefleet", "update.json")
 const TTL = 24 * 3600_000
 const REGISTRY = "https://registry.npmjs.org/zefleet/latest"
 
+export type InstallKind = "binary" | "source"
+
+/**
+ * How this copy runs: a compiled standalone binary IS the executable;
+ * source installs (npm / bunx / clone) execute through the bun runtime.
+ */
+export function installKind(execPath = process.execPath): InstallKind {
+  return /(^|\/)bun(x)?([.-][\w.]+)?$/.test(execPath) ? "source" : "binary"
+}
+
+export const INSTALLER_URL = "https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh"
+
+/** the right upgrade command for how this copy was installed */
+export function upgradeHint(kind: InstallKind = installKind()): string {
+  return kind === "binary" ? "zefleet upgrade" : "bun add -g zefleet@latest"
+}
+
 /** true when `b` is a higher semver than `a` (major.minor.patch, numeric) */
 export function isNewer(a: string, b: string): boolean {
   const pa = a.split(".").map((n) => parseInt(n, 10) || 0)

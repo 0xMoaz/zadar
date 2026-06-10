@@ -5,14 +5,48 @@ import { App } from "./App"
 import { applyTerminalPalette } from "./theme"
 import { collect } from "./collect"
 import { loadToday } from "./history"
+import { installKind, INSTALLER_URL, VERSION } from "./update"
 
 // A dashboard should never die on a stray async error — keep rendering.
 process.on("unhandledRejection", () => {})
 process.on("uncaughtException", () => {})
 
+const argv = process.argv.slice(2)
+
+if (argv.includes("--version") || argv.includes("-v")) {
+  console.log(`zefleet v${VERSION}`)
+  process.exit(0)
+}
+
+if (argv.includes("--help") || argv.includes("-h")) {
+  console.log(
+    [
+      `zefleet v${VERSION} — terminal mission control for parallel agents`,
+      "",
+      "usage:  zefleet [options] [command]",
+      "",
+      "  --api [port]   also serve fleet state as JSON on 127.0.0.1 (default 7433)",
+      "  --version      print the version",
+      "  upgrade        update zefleet in place (binary installs re-run the installer)",
+      "",
+      "keys are documented in-app — press ?",
+    ].join("\n"),
+  )
+  process.exit(0)
+}
+
+if (argv[0] === "upgrade") {
+  const cmd =
+    installKind() === "binary"
+      ? ["bash", "-c", `curl -fsSL ${INSTALLER_URL} | bash`]
+      : ["bun", "add", "-g", "zefleet@latest"]
+  console.log(`→ ${cmd.join(" ")}`)
+  const r = Bun.spawnSync(cmd, { stdout: "inherit", stderr: "inherit" })
+  process.exit(r.exitCode ?? 1)
+}
+
 // --api [port]: the same truth as JSON, localhost-only — lets a richer
 // surface (web / Readout / menubar) mount fleet's data without owning it.
-const argv = process.argv.slice(2)
 const apiIdx = argv.indexOf("--api")
 if (apiIdx >= 0) {
   const port = parseInt(argv[apiIdx + 1] ?? "", 10) || 7433

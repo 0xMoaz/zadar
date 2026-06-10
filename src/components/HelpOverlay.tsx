@@ -1,4 +1,5 @@
 import { color } from "../theme"
+import { upgradeHint } from "../update"
 
 const ROWS: [string, string][] = [
   ["j / k   ↓ / ↑", "move selection"],
@@ -44,7 +45,7 @@ export function HelpOverlay({ version, updateVer }: { version: string; updateVer
         {updateVer ? (
           <text>
             <span fg={color.positive}>↑ v{updateVer} available</span>
-            <span fg={color.dim}>{"  ·  bunx zefleet@latest  ·  brew upgrade"}</span>
+            <span fg={color.dim}>{`  ·  ${upgradeHint()}`}</span>
           </text>
         ) : null}
       </box>

@@ -13,9 +13,11 @@ const child = spawn("bun", [entry, ...process.argv.slice(2)], { stdio: "inherit"
 child.on("error", (err) => {
   if (err && err.code === "ENOENT") {
     process.stderr.write(
-      "\n  zefleet needs Bun to run.\n" +
-        "  Install it:  curl -fsSL https://bun.sh/install | bash\n" +
-        "  Then re-run: npx github:0xMoaz/zefleet\n\n",
+      "\n  zefleet runs on Bun, which isn't installed. Two ways out:\n\n" +
+        "  standalone binary (no Bun needed, macOS):\n" +
+        "    curl -fsSL https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh | bash\n\n" +
+        "  or install Bun:\n" +
+        "    curl -fsSL https://bun.sh/install | bash\n\n",
     )
     process.exit(127)
   }

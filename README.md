@@ -30,10 +30,23 @@ data contract.
 ## Install & run
 
 ```bash
-npx github:0xMoaz/zefleet      # one-off run  (needs Bun → https://bun.sh)
+# macOS standalone binary — no Bun, no Node, no deps (curl installer)
+curl -fsSL https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh | bash
+
+# or, with Bun installed:
+bunx zefleet                   # zero-install try
+bun add -g zefleet             # keep it
 ```
 
-`bunx github:0xMoaz/zefleet` works too. Or clone for local dev:
+Updating: fleet checks the registry ambiently (once a day, never blocking)
+and shows a faint `↑version` in the header when you're behind — then
+`zefleet upgrade` updates in place, using whichever way you installed.
+
+Releases are built by CI on git tags: each platform compiles a standalone
+binary with the Bun runtime embedded (`bun build --compile`). macOS arm64 +
+x64 today; Linux is gated on collector portability (agent discovery,
+clipboard, and notifications are macOS-specific right now), not on the
+pipeline. Or clone for local dev:
 
 ```bash
 bun install

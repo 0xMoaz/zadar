@@ -12,3 +12,7 @@ HANDOFF.md
 DESIGN.md
 ARCHITECTURE.md
 bun.lock
+
+# release machinery (GitHub's, not the package's)
+.github/
+install.sh
