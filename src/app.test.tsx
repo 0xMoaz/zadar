@@ -36,7 +36,7 @@ describe("home view — sessions first", () => {
     const f = s.captureCharFrame()
     expect(f).toContain("SESSIONS")
     expect(f).toContain("+4 more — v opens the queue") // 6 queue items, 2 in the strip
-    expect(f).toContain('"Should I overwrite the existing config') // strip + auto-expanded row
+    expect(f).toContain('“Should I overwrite the existing config') // strip + auto-expanded row
     expect(f).toContain("SERVERS")
     expect(f).toContain("PROJECTS")
     expect(f).not.toContain("playground") // idle stays hidden in sessions until i
@@ -89,9 +89,9 @@ describe("map view — the attention queue (behind v)", () => {
     await press(s, "v")
     const f = s.captureCharFrame()
     expect(f).toContain("NEEDS YOU")
-    expect(f).toContain('"Should I overwrite the existing config')
+    expect(f).toContain('“Should I overwrite the existing config')
     expect(f).toContain("① Overwrite")
-    expect(f).toContain(":3000 holding 14.0G of memory")
+    expect(f).toContain(":3000 holding 14G of memory")
     expect(f).toContain("review +214 −38 across 9 files")
     expect(f).toContain("PROJECTS")
     expect(f).toContain("api-gateway")

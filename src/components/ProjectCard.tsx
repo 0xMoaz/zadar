@@ -2,7 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import type { ProjectGroup } from "../fleetmap"
 import type { AgentStatus } from "../types"
 import { color, glyph, statusColor, statusGlyph } from "../theme"
-import { fmtCost, fmtMem } from "../format"
+import { clip, fmtCost, fmtMem } from "../format"
 
 const STATUS_ORDER: AgentStatus[] = ["waiting", "error", "ready", "working", "unknown", "idle"]
 
@@ -34,7 +34,7 @@ export function ProjectCard({
         <span fg={color.accent}>{selected ? glyph.gutter : " "}</span>
         <span fg={color.dim}>{expanded ? glyph.expanded : glyph.collapsed} </span>
         <span fg={color.fg} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
-          {group.key}
+          {clip(group.key, 22)}
         </span>
         <span fg={color.dim}>{"   "}</span>
         {STATUS_ORDER.filter((s) => counts.get(s)).map((s) => (
@@ -57,7 +57,7 @@ export function ProjectCard({
         {wt && !narrow && (
           <span fg={color.dim}>
             {`${counts.size || server ? " · " : ""}${wt.total} ${wt.total === 1 ? "tree" : "trees"}`}
-            {wt.changed > 0 ? <span fg={color.attention}>{` ${wt.changed} dirty`}</span> : null}
+            {wt.changed > 0 ? <span fg={color.attention}>{` · ${wt.changed} dirty`}</span> : null}
           </span>
         )}
       </text>

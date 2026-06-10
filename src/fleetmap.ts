@@ -107,7 +107,7 @@ export function attentionQueue(snap: Snapshot): AttentionItem[] {
   for (const a of snap.agents) {
     const label = a.wt ? `${a.project}/${a.wt}` : a.project
     if (a.status === "waiting" && a.waitKind === "question")
-      push("question", label, `"${a.question ?? "needs your input"}"`, a.idleSec, a)
+      push("question", label, `“${a.question ?? "needs your input"}”`, a.idleSec, a)
     else if (a.status === "waiting") push("approval", label, a.question ?? "tool pending", a.idleSec, a)
     else if (a.status === "error") push("error", label, a.question ?? a.lastActivity, a.idleSec, a)
     else if (a.status === "ready")
