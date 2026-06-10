@@ -37,7 +37,7 @@ describe("attentionQueue", () => {
 
   test("titles are action sentences with the literal content", () => {
     expect(q[0].title).toContain("Should I overwrite the existing config")
-    expect(q[3].title).toBe(":3000 holding 14.0G of memory")
+    expect(q[3].title).toBe(":3000 holding 14G of memory")
     expect(q[4].title).toBe("review +214 −38 across 9 files")
   })
 
