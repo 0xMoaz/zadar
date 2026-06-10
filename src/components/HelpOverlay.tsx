@@ -18,7 +18,7 @@ const ROWS: [string, string][] = [
   ["q", "quit"],
 ]
 
-export function HelpOverlay() {
+export function HelpOverlay({ version, updateVer }: { version: string; updateVer?: string | null }) {
   return (
     <box
       flexGrow={1}
@@ -39,8 +39,14 @@ export function HelpOverlay() {
           <text fg={color.dim}>{label}</text>
         </box>
       ))}
-      <box paddingTop={1}>
-        <text fg={color.faint}>fleet · terminal mission control for parallel agents</text>
+      <box paddingTop={1} flexDirection="column">
+        <text fg={color.faint}>fleet v{version} · terminal mission control for parallel agents</text>
+        {updateVer ? (
+          <text>
+            <span fg={color.positive}>↑ v{updateVer} available</span>
+            <span fg={color.dim}>{"  ·  bunx zefleet@latest  ·  brew upgrade"}</span>
+          </text>
+        ) : null}
       </box>
     </box>
   )

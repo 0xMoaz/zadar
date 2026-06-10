@@ -18,6 +18,7 @@ import { color, statusColor, statusGlyph } from "./theme"
 import { clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
+import { checkForUpdate, VERSION } from "./update"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
@@ -80,6 +81,7 @@ export function App({
   const [log, setLog] = useState(false)
   const [showIdle, setShowIdle] = useState(false)
   const [notifyOn, setNotifyOn] = useState(true)
+  const [updateVer, setUpdateVer] = useState<string | null>(null)
   // the flight recorder outlives the process — reload today's story on boot
   const [events, setEvents] = useState<Transition[]>(() => (live ? loadToday(Date.now()) : []))
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -215,6 +217,12 @@ export function App({
   // the agent / server a row's actions apply to (queue items carry their target)
   const targetAgent = cur?.kind === "agent" ? cur.agent : cur?.kind === "queue" ? cur.item.agent : undefined
   const targetServer = cur?.kind === "server" ? cur.server : cur?.kind === "queue" ? cur.item.server : undefined
+
+  // ambient update check — cached daily, silent on failure, never blocks
+  useEffect(() => {
+    if (!live) return
+    void checkForUpdate().then(setUpdateVer).catch(() => {})
+  }, [live])
 
   useEffect(() => {
     if (!live) return
@@ -464,9 +472,12 @@ export function App({
           {ready > 0 && <span fg={color.positive}>{`  ◆${ready}`}</span>}
           {workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
         </text>
-        <text fg={color.dim}>
-          {fleetBurn >= 0.05 ? `$${fleetBurn.toFixed(1)}/h · ` : ""}
-          {snap.time || "…"}
+        <text>
+          {updateVer && <span fg={color.faint}>{`↑${updateVer}  `}</span>}
+          <span fg={color.dim}>
+            {fleetBurn >= 0.05 ? `$${fleetBurn.toFixed(1)}/h · ` : ""}
+            {snap.time || "…"}
+          </span>
         </text>
       </box>
       <Rule />
@@ -489,7 +500,7 @@ export function App({
       {/* middle — one scrolling accordion of collapsible sections */}
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
         {help ? (
-          <HelpOverlay />
+          <HelpOverlay version={VERSION} updateVer={updateVer} />
         ) : log ? (
           <EventLog events={events} maxRows={height - 8} />
         ) : (

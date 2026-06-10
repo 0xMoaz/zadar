@@ -1,7 +1,7 @@
 {
   "name": "zefleet",
-  "version": "0.1.0",
-  "description": "Terminal mission control for parallel agentic dev — agents, dev servers, and git worktrees in one collapsible dashboard.",
+  "version": "0.3.0",
+  "description": "Terminal mission control for parallel agentic dev — Claude Code & Codex sessions, dev servers, and git worktrees in one calm dashboard.",
   "type": "module",
   "license": "MIT",
   "author": "0xMoaz",
@@ -9,13 +9,14 @@
     "type": "git",
     "url": "git+https://github.com/0xMoaz/zefleet.git"
   },
-  "homepage": "https://zee.gg/fleet",
-  "keywords": ["cli", "tui", "dashboard", "agents", "claude-code", "worktrees", "bun"],
-  "bin": {
-    "zefleet": "bin/zefleet.mjs",
-    "fleet": "bin/zefleet.mjs"
+  "homepage": "https://github.com/0xMoaz/zefleet",
+  "keywords": ["cli", "tui", "dashboard", "claude-code", "codex", "agents", "worktrees", "opentui", "bun"],
+  "engines": {
+    "bun": ">=1.1.0"
   },
-  "files": ["bin", "src", "tsconfig.json", "README.md"],
+  "bin": {
+    "zefleet": "bin/zefleet.mjs"
+  },
   "scripts": {
     "fleet": "bun run src/index.tsx",
     "dev": "bun run src/index.tsx",

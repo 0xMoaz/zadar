@@ -1,0 +1,14 @@
+# dev-only source — never executed by the shipped CLI
+*.test.ts
+*.test.tsx
+src/mock.ts
+src/smoke.tsx
+src/probe.ts
+
+# planning, reference, and design docs (live on GitHub, not in the package)
+tasks/
+reference/
+HANDOFF.md
+DESIGN.md
+ARCHITECTURE.md
+bun.lock
