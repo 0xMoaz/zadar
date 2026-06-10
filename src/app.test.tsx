@@ -42,12 +42,13 @@ describe("home view — sessions first", () => {
     expect(f).not.toContain("playground") // idle stays hidden in sessions until i
   })
 
-  test("urgent rows auto-expand; Enter discloses detail; i reveals idle", async () => {
+  test("urgent rows auto-expand; Enter discloses the story; i reveals idle", async () => {
     const s = await mount()
     await press(s, "j", "RETURN")
     let f = s.captureCharFrame()
     expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-    expect(f).toContain("✓ bun test → 42 pass")
+    expect(f).toContain("task") // labeled story rows, not a tool log
+    expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
     await press(s, "RETURN", "i")
     f = s.captureCharFrame()
     expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")

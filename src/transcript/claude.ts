@@ -1,7 +1,7 @@
 import { readdirSync, statSync, openSync, readSync, closeSync } from "node:fs"
 import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
-import { inferStatus, toolLabel } from "./status"
+import { inferStatus, lastSaidOf, taskOf, toolLabel } from "./status"
 import { parseTail, tailText } from "./jsonl"
 import { rhythmOf } from "../signal"
 import type { AgentStatus, WaitKind } from "../types"
@@ -16,6 +16,8 @@ export interface ClaudeSignals {
   waitKind?: WaitKind
   question?: string
   options?: string[]
+  task?: string
+  lastSaid?: string
   lastActivity: string
   recent: string[]
   contextPct: number
@@ -174,6 +176,8 @@ export function parseClaude(
     waitKind: inferred.waitKind,
     question: inferred.question,
     options: inferred.options,
+    task: taskOf(tail),
+    lastSaid: lastSaidOf(tail),
     lastActivity,
     recent: acts.slice(0, 4),
     contextPct,

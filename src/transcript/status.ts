@@ -34,6 +34,44 @@ export function toolLabel(b: any): string {
 
 const meaningful = (e: any) => e?.type === "user" || e?.type === "assistant"
 
+const squish = (t: string, max: number) => {
+  const s = t.replace(/\s+/g, " ").trim()
+  return s.length > max ? s.slice(0, max - 1) + "…" : s
+}
+
+/**
+ * The task: the user's last typed prompt — the anchor that answers "what is
+ * this session for?". Typed prompts are user events with STRING content;
+ * tool results are arrays, harness injections start with '<', interrupts
+ * with '[', and sidechain (subagent) traffic isn't yours.
+ */
+export function taskOf(tail: any[], max = 90): string | undefined {
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const ev = tail[i]
+    if (ev?.type !== "user" || ev.isSidechain || ev.isMeta) continue
+    const c = ev.message?.content
+    if (typeof c !== "string") continue
+    const t = c.trim()
+    if (!t || t.startsWith("<") || t.startsWith("[")) continue
+    return squish(t, max)
+  }
+  return undefined
+}
+
+/** the agent's last words — the most recent assistant text block */
+export function lastSaidOf(tail: any[], max = 90): string | undefined {
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const ev = tail[i]
+    if (ev?.type !== "assistant" || ev.isSidechain) continue
+    const c = ev.message?.content
+    if (!Array.isArray(c)) continue
+    for (let j = c.length - 1; j >= 0; j--) {
+      if (c[j]?.type === "text" && c[j].text?.trim()) return squish(c[j].text, max)
+    }
+  }
+  return undefined
+}
+
 /**
  * Pure status inference over the parsed transcript tail.
  *

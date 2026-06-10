@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { inferStatus, ACTIVE_SEC, APPROVAL_SEC, READY_SEC } from "./status"
+import { inferStatus, lastSaidOf, taskOf, ACTIVE_SEC, APPROVAL_SEC, READY_SEC } from "./status"
 
 const asst = (content: any[], stop: string | null = null) => ({
   type: "assistant",
@@ -91,6 +91,52 @@ describe("error detection", () => {
 
   test("a fresh failed tool result is still working (agent about to react)", () => {
     expect(inferStatus(failed, 5).status).toBe("working")
+  })
+})
+
+describe("taskOf — the user's last typed prompt", () => {
+  const typed = (text: string, extra: any = {}) => ({ type: "user", message: { content: text }, ...extra })
+
+  test("finds the last typed prompt, skipping tool results", () => {
+    const tail = [typed("fix the auth redirect loop"), toolResult("t1"), asst([{ type: "text", text: "done" }])]
+    expect(taskOf(tail)).toBe("fix the auth redirect loop")
+  })
+
+  test("skips harness injections, interrupts, sidechains, and meta", () => {
+    const tail = [
+      typed("the real task"),
+      typed("<system-reminder>noise</system-reminder>"),
+      typed("[Request interrupted by user]"),
+      typed("subagent chatter", { isSidechain: true }),
+      typed("meta", { isMeta: true }),
+    ]
+    expect(taskOf(tail)).toBe("the real task")
+  })
+
+  test("squishes whitespace and clips long prompts", () => {
+    const t = taskOf([typed("fix\n  the   thing " + "x".repeat(200))], 40)!
+    expect(t.length).toBe(40)
+    expect(t.endsWith("…")).toBe(true)
+    expect(t).toContain("fix the thing")
+  })
+
+  test("no typed prompt in the tail → undefined", () => {
+    expect(taskOf([toolResult("t1")])).toBeUndefined()
+  })
+})
+
+describe("lastSaidOf — the agent's last words", () => {
+  test("finds the most recent assistant text block", () => {
+    const tail = [
+      asst([{ type: "text", text: "first thought" }]),
+      asst([{ type: "tool_use", id: "t1", name: "Bash", input: {} }]),
+      asst([{ type: "text", text: "All green — shipping it." }], "end_turn"),
+    ]
+    expect(lastSaidOf(tail)).toBe("All green — shipping it.")
+  })
+
+  test("tool-only turns → undefined", () => {
+    expect(lastSaidOf([asst([{ type: "tool_use", id: "t1", name: "Read", input: {} }])])).toBeUndefined()
   })
 })
 

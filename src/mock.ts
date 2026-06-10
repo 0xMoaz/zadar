@@ -6,6 +6,7 @@ export const mockSnapshot: Snapshot = {
   agents: [
     {
       id: "web-auth-01",
+      task: "fix the auth redirect loop on the marketing pages",
       pid: 74867,
       kind: "claude",
       project: "webapp",
@@ -28,6 +29,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "omni-tf-02",
+      task: "apply the staging infra plan once it looks safe",
       pid: 81244,
       kind: "claude",
       project: "omnipair",
@@ -49,6 +51,8 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "zee-main-03",
+      task: "polish the vitals grid — typography, alignment, honest numbers",
+      lastSaid: "The grid is optically locked — bars align and right edges are flush.",
       pid: 21121,
       kind: "claude",
       project: "zefleet",
@@ -70,6 +74,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "api-rate-04",
+      task: "add a token-bucket rate limiter to the gateway",
       pid: 50412,
       kind: "claude",
       project: "api-gateway",
@@ -91,6 +96,8 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "docs-ready-05",
+      task: "write the getting-started guide",
+      lastSaid: "Draft complete — build passes, ready for your read.",
       pid: 33110,
       kind: "claude",
       project: "docs-site",
@@ -110,6 +117,7 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "legacy-err-06",
+      task: "hotfix the NPE in the request handler",
       pid: 41980,
       kind: "claude",
       project: "legacy-svc",
@@ -129,6 +137,8 @@ export const mockSnapshot: Snapshot = {
     },
     {
       id: "infra-codex-07",
+      task: "audit the terraform module layout",
+      lastSaid: "Reviewing the staging module dependencies now.",
       pid: 60233,
       kind: "codex",
       project: "infra",

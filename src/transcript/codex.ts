@@ -13,6 +13,8 @@ export interface CodexSignals {
   sessionId: string
   model: string
   status: AgentStatus
+  task?: string
+  lastSaid?: string
   lastActivity: string
   recent: string[]
   contextPct: number
@@ -114,6 +116,7 @@ export function parseCodex(cwd: string, flagModel: string, nowMs: number, root =
   let info: any = null
   let planPct: number | undefined
   let model = flagModel
+  let task: string | undefined
   const recent: string[] = []
   for (let i = tail.length - 1; i >= 0; i--) {
     const ev = tail[i]
@@ -122,6 +125,7 @@ export function parseCodex(cwd: string, flagModel: string, nowMs: number, root =
       planPct = ev.payload.rate_limits.primary.used_percent
     if (recent.length < 4 && ev?.payload?.type === "agent_message" && ev.payload.message)
       recent.push(snippet(ev.payload.message))
+    if (!task && ev?.payload?.type === "user_message" && ev.payload.message) task = snippet(ev.payload.message)
     if (ev?.type === "turn_context" && ev.payload?.model) model = ev.payload.model
   }
 
@@ -134,6 +138,8 @@ export function parseCodex(cwd: string, flagModel: string, nowMs: number, root =
     sessionId: sess.id || sess.path,
     model: model || "codex",
     status,
+    task,
+    lastSaid: recent[0],
     lastActivity: recent[0] ?? (status === "working" ? "task running" : "—"),
     recent,
     contextPct: window > 0 ? Math.min(100, (occ / window) * 100) : 0,

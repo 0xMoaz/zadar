@@ -138,15 +138,44 @@ export function AgentBlock({
         </text>
       )}
 
-      {/* disclosed detail — recent activity + vitals + place */}
+      {/* disclosed detail — the session's story, not a tool log:
+          task (what you asked) · now (what it's doing) · said (its last words)
+          · built (what it produced), then vitals and place */}
       {expanded && (
         <box flexDirection="column">
-          {agent.recent.map((r, i) => (
-            <text key={`r${i}`} fg={color.dim}>
-              {INDENT}
-              {r}
+          {(agent.task ? wrapText(`“${agent.task}”`, textW - 6, 2) : []).map((l, i) => (
+            <text key={`t${i}`}>
+              <span fg={color.faint}>
+                {INDENT}
+                {i === 0 ? "task  " : "      "}
+              </span>
+              <span fg={color.fg}>{l}</span>
             </text>
           ))}
+          {!urgent && agent.lastActivity !== "—" && (
+            <text>
+              <span fg={color.faint}>{INDENT}now   </span>
+              <span fg={color.dim}>{clip(agent.lastActivity, textW - 18)}</span>
+              <span fg={color.faint}> · {fmtDuration(agent.idleSec)} ago</span>
+            </text>
+          )}
+          {agent.lastSaid && agent.lastSaid !== agent.lastActivity && (
+            <text>
+              <span fg={color.faint}>{INDENT}said  </span>
+              <span fg={color.dim}>“{clip(agent.lastSaid, textW - 10)}”</span>
+            </text>
+          )}
+          {agent.diff && agent.diff.files > 0 && (
+            <text>
+              <span fg={color.faint}>{INDENT}built </span>
+              <span fg={color.positive}>+{agent.diff.plus}</span>
+              <span fg={color.danger}> −{agent.diff.minus}</span>
+              <span fg={color.dim}>
+                {" "}
+                across {agent.diff.files} {agent.diff.files === 1 ? "file" : "files"}, uncommitted
+              </span>
+            </text>
+          )}
           <text>
             <span fg={color.dim}>{INDENT}</span>
             <span fg={color.dim}>
@@ -167,17 +196,6 @@ export function AgentBlock({
             )}
             {urgent && <span fg={color.fg}>{"  "}{fmtCost(agent.costUsd)}</span>}
           </text>
-          {agent.diff && agent.diff.files > 0 && !showDiff && (
-            <text>
-              <span fg={color.dim}>{INDENT}uncommitted </span>
-              <span fg={color.positive}>+{agent.diff.plus}</span>
-              <span fg={color.danger}> −{agent.diff.minus}</span>
-              <span fg={color.dim}>
-                {" "}
-                across {agent.diff.files} {agent.diff.files === 1 ? "file" : "files"}
-              </span>
-            </text>
-          )}
           <text fg={color.faint}>
             {INDENT}
             {shorten(agent.cwd)}

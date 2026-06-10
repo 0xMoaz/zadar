@@ -21,6 +21,10 @@ export interface Agent {
   options?: string[]
   /** live processes that resolved to this session (>1 = shared transcript) */
   procs: number
+  /** the user's last typed prompt — what this session is FOR */
+  task?: string
+  /** the agent's last words (most recent assistant text) */
+  lastSaid?: string
   /** one-line "what it's doing now" */
   lastActivity: string
   /** recent activity lines, newest first */
