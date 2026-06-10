@@ -34,12 +34,34 @@ npx github:0xMoaz/zefleet      # one-off run  (needs Bun → https://bun.sh)
 
 ```bash
 bun install
-bun run fleet                 # live dashboard
-bun run smoke                 # headless render at wide + narrow widths
+bun run fleet                 # live dashboard (inside the repo only)
+bun run smoke                 # headless render at several geometries
+bun test                      # unit + headless interaction suite
 ```
 
-**Keys:** `↑↓`/`jk` move · `←→`/`hl` fold a section · `⏎` expand / copy · `x` kill
-(agent or server) · `i` idle · `r` refresh · `?` help · `q` quit.
+For a global `zefleet` command from any directory:
+
+```bash
+printf '#!/bin/sh\nexec bun %s/src/index.tsx "$@"\n' "$(pwd)" > ~/.local/bin/zefleet
+chmod +x ~/.local/bin/zefleet
+```
+
+> **PATH trap:** outside this repo, `bun run fleet` falls through to whatever
+> `fleet` binary is on your PATH — on this machine that's the *old bash
+> dashboard*, which prints one frame and exits. Use `zefleet` (above), or
+> repoint `~/.local/bin/fleet` once you're ready to retire the bash version.
+
+**Keys:** `↑↓`/`jk` move · `⏎` disclose details / fold a section · `←→`/`hl`
+fold · `o` open (Claude app / browser) · `c` copy (resume / url) · `x` kill ·
+`p` prune a clean worktree · `t` activity log · `n` notifications · `i` idle ·
+`r` refresh · `?` help · `q` quit.
+
+**States:** `▲` waiting on you (literal question, or a tool pending >2m) ·
+`✕` error · `◆` ready — turn finished, output awaiting your review (badged
+with its diff `+214 −38`) · `●` working (brightens when the transcript is
+actually moving) · `?` unknown · `○` idle (fades with age). The `fleet`
+wordmark tints to the worst case and counts every state; a desktop
+notification fires the moment an agent starts needing you.
 
 ## Docs
 

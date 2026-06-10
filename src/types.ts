@@ -1,24 +1,39 @@
 export type AgentKind = "claude" | "codex"
-export type AgentStatus = "working" | "waiting" | "idle" | "error"
+export type AgentStatus = "working" | "waiting" | "ready" | "idle" | "error" | "unknown"
+/** why a waiting agent waits: a literal question vs. a pending tool (approval or hung) */
+export type WaitKind = "question" | "approval"
 
 export interface Agent {
   id: string
   pid: number
   kind: AgentKind
   project: string
+  /** worktree name when the session runs inside .claude/worktrees/<wt> */
+  wt?: string
   cwd: string
   branch: string
   model: string
   status: AgentStatus
+  waitKind?: WaitKind
   /** the literal question the agent is blocked on (status === "waiting") */
   question?: string
+  /** AskUserQuestion option labels — pre-decide before you switch */
+  options?: string[]
+  /** live processes that resolved to this session (>1 = shared transcript) */
+  procs: number
   /** one-line "what it's doing now" */
   lastActivity: string
   /** recent activity lines, newest first */
   recent: string[]
   /** 0..100 */
   contextPct: number
+  /** pre-compaction high-water mark, fading ghost on the bar */
+  ctxGhostPct?: number
   costUsd: number
+  /** cost velocity over the last ~10 minutes, $/hour */
+  burnPerHour?: number
+  /** uncommitted change size in the agent's cwd — what it produced for review */
+  diff?: { files: number; plus: number; minus: number }
   tokens: number
   uptimeSec: number
   /** seconds since last transcript activity */
@@ -33,6 +48,7 @@ export interface DevServer {
   uptime: string
   project: string
   branch: string
+  cwd: string
   /** true when the server's cwd no longer exists (orphaned worktree) */
   stale: boolean
 }
@@ -47,10 +63,23 @@ export interface SystemStat {
   memHistory: number[]
 }
 
+export interface WorktreeItem {
+  name: string
+  branch: string
+  /** dirty file count, 0 = clean (prunable) */
+  dirty: number
+  /** days since the worktree directory last changed */
+  ageDays: number
+  path: string
+}
+
 export interface RepoWorktrees {
   repo: string
+  /** absolute repo path (prune target) */
+  path: string
   total: number
   changed: number
+  items: WorktreeItem[]
 }
 
 export interface Snapshot {

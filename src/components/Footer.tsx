@@ -1,23 +1,16 @@
 import { color } from "../theme"
 
-const hint = (k: string, label: string) => (
-  <span>
-    <span fg={color.fg}>{k}</span>
-    <span fg={color.dim}> {label}  </span>
-  </span>
-)
-
-export function Footer({ toast = "", primary = "select" }: { toast?: string; primary?: string }) {
+/** Context-sensitive keybinding hints; only keys that do something right now. */
+export function Footer({ hints, toast = "" }: { hints: [string, string][]; toast?: string }) {
   return (
     <box flexDirection="row" justifyContent="space-between">
       <text>
-        {hint("↑↓", "move")}
-        {hint("←→", "fold")}
-        {hint("⏎", primary)}
-        {hint("x", "kill")}
-        {hint("i", "idle")}
-        {hint("?", "help")}
-        {hint("q", "quit")}
+        {hints.map(([k, label]) => (
+          <span key={k}>
+            <span fg={color.fg}>{k}</span>
+            <span fg={color.dim}> {label}  </span>
+          </span>
+        ))}
       </text>
       {toast ? <text fg={color.positive}>{toast}</text> : <text> </text>}
     </box>

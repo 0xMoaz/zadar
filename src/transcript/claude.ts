@@ -1,7 +1,8 @@
 import { readdirSync, statSync, openSync, readSync, closeSync } from "node:fs"
 import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
-import type { AgentStatus } from "../types"
+import { inferStatus, toolLabel } from "./status"
+import type { AgentStatus, WaitKind } from "../types"
 
 const HOME = process.env.HOME ?? ""
 
@@ -10,7 +11,9 @@ export interface ClaudeSignals {
   /** model as reported by the transcript (for display) */
   model: string
   status: AgentStatus
+  waitKind?: WaitKind
   question?: string
+  options?: string[]
   lastActivity: string
   recent: string[]
   contextPct: number
@@ -90,7 +93,7 @@ interface CostState {
 }
 const costCache = new Map<string, CostState>()
 
-function accrueCost(path: string, model: string, mtimeMs: number): { tokens: number; cost: number } {
+export function accrueCost(path: string, fallbackModel: string, mtimeMs: number): { tokens: number; cost: number } {
   let st = costCache.get(path)
   if (st && st.mtimeMs === mtimeMs) return { tokens: st.tokens, cost: st.cost }
   const size = statSync(path).size
@@ -126,7 +129,8 @@ function accrueCost(path: string, model: string, mtimeMs: number): { tokens: num
           cacheWrite: u.cache_creation_input_tokens ?? 0,
         }
         st.tokens += usage.input + usage.output + usage.cacheRead + usage.cacheWrite
-        st.cost += costOf(usage, model)
+        // price each event at ITS model — sessions switch models mid-flight
+        st.cost += costOf(usage, obj.message?.model ?? fallbackModel)
       }
       st.offset += consumed
     }
@@ -136,29 +140,6 @@ function accrueCost(path: string, model: string, mtimeMs: number): { tokens: num
   } finally {
     closeSync(fd)
   }
-}
-
-function lastToolUse(ev: any): any | null {
-  const c = ev?.message?.content
-  if (!Array.isArray(c)) return null
-  for (let i = c.length - 1; i >= 0; i--) if (c[i].type === "tool_use") return c[i]
-  return null
-}
-
-function toolLabel(b: any): string {
-  const inp = b.input ?? {}
-  const verb =
-    ({ Bash: "run", Read: "read", Edit: "edit", Write: "write", Grep: "grep", Glob: "glob", Task: "task" } as Record<
-      string,
-      string
-    >)[b.name] ?? b.name
-  // Bash: show the command verbatim (don't path-split). Files: show a short path.
-  let arg: string
-  if (inp.command) arg = String(inp.command).replace(/\s+/g, " ").trim()
-  else if (inp.file_path ?? inp.path) arg = String(inp.file_path ?? inp.path).split("/").slice(-2).join("/")
-  else arg = String(inp.pattern ?? inp.query ?? inp.description ?? "")
-  arg = arg.slice(0, 46)
-  return arg ? `${verb} ${arg}` : verb
 }
 
 const snippet = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 70)
@@ -206,36 +187,20 @@ export function parseClaude(
     : 0
   const contextPct = Math.min(100, (occ / window) * 100)
 
-  // seconds of transcript silence before we consider an agent no longer actively working
-  const ACTIVE_SEC = 45
-  let status: AgentStatus = "idle"
-  let question: string | undefined
-  const trailing = lastToolUse(lastAssistant)
-  if (trailing?.name === "AskUserQuestion") {
-    // blocked on a question for you — highest priority
-    status = "waiting"
-    question =
-      trailing.input?.questions?.[0]?.question ?? trailing.input?.question ?? "waiting for your input"
-  } else if (idleSec <= ACTIVE_SEC) {
-    // transcript was just written → actively generating / running tools
-    status = "working"
-  } else if (lastAssistant?.message?.stop_reason === "tool_use") {
-    // last action was a tool call with no result yet → running a long tool
-    status = "working"
-  } else {
-    // finished its turn and quiet for a while → idle / awaiting you
-    status = "idle"
-  }
+  const inferred = inferStatus(tail, idleSec)
 
   const acts = activityLines(tail)
-  const lastActivity = question ? "AskUserQuestion" : acts[0] ?? "—"
+  const lastActivity =
+    inferred.waitKind === "question" ? "AskUserQuestion" : (inferred.question ?? acts[0] ?? "—")
   const { tokens, cost } = accrueCost(sess.path, transcriptModel, sess.mtimeMs)
 
   return {
     sessionId: sess.id,
     model: transcriptModel,
-    status,
-    question,
+    status: inferred.status,
+    waitKind: inferred.waitKind,
+    question: inferred.question,
+    options: inferred.options,
     lastActivity,
     recent: acts.slice(0, 4),
     contextPct,

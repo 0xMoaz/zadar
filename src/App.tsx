@@ -1,23 +1,35 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
-import type { Agent, DevServer, RepoWorktrees, Snapshot } from "./types"
-import { copyResume, copyText, killProcess, resumeCommand } from "./actions"
-import { color } from "./theme"
-import { fmtMem } from "./format"
+import { invalidateWorktrees } from "./collectors/worktrees"
+import type { Agent, DevServer, RepoWorktrees, Snapshot, WorktreeItem } from "./types"
+import {
+  copyResume,
+  copyText,
+  focusClaude,
+  killProcess,
+  notify,
+  openServer,
+  pruneWorktree,
+  resumeCommand,
+} from "./actions"
+import { color, statusColor, statusGlyph } from "./theme"
+import { clock, fmtMem } from "./format"
+import { diffTransitions, type Transition } from "./signal"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
-import { WorktreeCard } from "./components/WorktreeCard"
+import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
 import { Footer } from "./components/Footer"
 import { HelpOverlay } from "./components/HelpOverlay"
+import { EventLog } from "./components/EventLog"
 import { TextAttributes } from "@opentui/core"
 
 // Hide only genuinely-dormant sessions. A session you touched recently — even if
 // it just finished a turn and is awaiting you — stays visible. Toggle with `i`.
 const STALE_SEC = 20 * 60
-const isActive = (a: Agent) => a.status === "working" || a.status === "waiting" || a.idleSec < STALE_SEC
+const isActive = (a: Agent) => a.status !== "idle" || a.idleSec < STALE_SEC
 
 type Section = "agents" | "servers" | "worktrees"
 const LABEL: Record<Section, string> = { agents: "AGENTS", servers: "SERVERS", worktrees: "WORKTREES" }
@@ -27,6 +39,7 @@ type Row =
   | { sid: string; kind: "agent"; section: Section; agent: Agent }
   | { sid: string; kind: "server"; section: Section; server: DevServer }
   | { sid: string; kind: "worktree"; section: Section; wt: RepoWorktrees }
+  | { sid: string; kind: "wtitem"; section: Section; repo: RepoWorktrees; item: WorktreeItem }
 
 export function App({
   snapshot,
@@ -40,19 +53,36 @@ export function App({
   const { width, height } = useTerminalDimensions()
   const renderer = useRenderer()
   const [snap, setSnap] = useState<Snapshot>(snapshot ?? emptySnapshot)
-  const [sel, setSel] = useState(0)
+  const [selSid, setSelSid] = useState("h-agents")
   const [open, setOpen] = useState<Record<Section, boolean>>({ agents: true, servers: false, worktrees: false })
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
   const [toast, setToast] = useState("")
   const [help, setHelp] = useState(false)
+  const [log, setLog] = useState(false)
   const [showIdle, setShowIdle] = useState(false)
+  const [notifyOn, setNotifyOn] = useState(true)
+  const [events, setEvents] = useState<Transition[]>([])
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastIdx = useRef(0)
+  const prevStatuses = useRef<Map<string, Agent["status"]> | null>(null)
   const sbRef = useRef<any>(null)
 
   const idleCount = snap.agents.filter((a) => !isActive(a)).length
   const visibleAgents = showIdle ? snap.agents : snap.agents.filter(isActive)
   const waiting = snap.agents.filter((a) => a.status === "waiting").length
-  const compact = width < 64
+  const ready = snap.agents.filter((a) => a.status === "ready").length
+  const errorN = snap.agents.filter((a) => a.status === "error").length
+  const workingN = snap.agents.filter((a) => a.status === "working").length
+  const worstWait = Math.max(0, ...snap.agents.filter((a) => a.status === "waiting").map((a) => a.idleSec))
+  const fleetBurn = snap.agents.reduce((n, a) => n + (a.burnPerHour ?? 0), 0)
+  // the chrome reports the worst case — the wordmark is readable from across the room
+  const beacon = errorN > 0 || worstWait > 300 ? color.danger : waiting > 0 ? color.attention : color.accent
+
+  // sizing tiers — fleet lives in splits; rows and air adapt to the pane
+  const cardWidth = Math.max(36, width - 7)
+  const dense = height < 24
+  const short = height < 14
 
   // flattened, navigable rows — section headers plus the items of expanded sections
   const rows: Row[] = [{ sid: "h-agents", kind: "header", section: "agents" }]
@@ -60,20 +90,34 @@ export function App({
   rows.push({ sid: "h-servers", kind: "header", section: "servers" })
   if (open.servers) snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
   rows.push({ sid: "h-worktrees", kind: "header", section: "worktrees" })
-  if (open.worktrees) snap.worktrees.forEach((w) => rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w }))
+  if (open.worktrees)
+    snap.worktrees.forEach((w) => {
+      rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w })
+      if (openRows.has(`w-${w.repo}`))
+        w.items.forEach((it) =>
+          rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "worktrees", repo: w, item: it }),
+        )
+    })
 
-  const selSafe = Math.min(sel, rows.length - 1)
-  const cur = rows[selSafe]
-  const selSid = cur?.sid
+  // selection follows identity, not position — re-sorts never move it under you
+  const found = rows.findIndex((r) => r.sid === selSid)
+  const selIdx = found >= 0 ? found : Math.max(0, Math.min(lastIdx.current, rows.length - 1))
+  lastIdx.current = selIdx
+  const cur = rows[selIdx]
+  const curSid = cur?.sid
 
   const serverMem = snap.servers.reduce((n, s) => n + s.memKB, 0)
   const staleN = snap.servers.filter((s) => s.stale).length
   const dirtyN = snap.worktrees.reduce((n, w) => n + w.changed, 0)
   const summaryFor = (s: Section): string => {
-    if (s === "agents")
-      return snap.agents.length === 0
-        ? "none"
-        : `${visibleAgents.length} active${waiting ? ` · ${waiting} waiting` : ""}${idleCount ? ` · ${idleCount} idle` : ""}`
+    if (s === "agents") {
+      if (snap.agents.length === 0) return "none"
+      const parts = [`${visibleAgents.length} active`]
+      if (waiting) parts.push(`${waiting} waiting`)
+      if (ready) parts.push(`${ready} ready`)
+      if (idleCount && !showIdle) parts.push(`${idleCount} idle`)
+      return parts.join(" · ")
+    }
     if (s === "servers")
       return snap.servers.length === 0
         ? "none"
@@ -86,10 +130,10 @@ export function App({
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(""), 2800)
   }
-  const refresh = async () => {
+  const refresh = async (silent = false) => {
     try {
       setSnap(await collect())
-      flash("refreshed")
+      if (!silent) flash("refreshed")
     } catch {
       /* keep last good */
     }
@@ -102,7 +146,18 @@ export function App({
     }
     process.exit(0)
   }
-  const toggle = (s: Section) => setOpen((o) => ({ ...o, [s]: !o[s] }))
+  const toggleSection = (s: Section) => setOpen((o) => ({ ...o, [s]: !o[s] }))
+  const setRowOpen = (sid: string, v: boolean) =>
+    setOpenRows((prev) => {
+      const n = new Set(prev)
+      if (v) n.add(sid)
+      else n.delete(sid)
+      return n
+    })
+  const move = (d: number) => {
+    const next = rows[Math.max(0, Math.min(rows.length - 1, selIdx + d))]
+    if (next) setSelSid(next.sid)
+  }
 
   useEffect(() => {
     if (!live) return
@@ -125,9 +180,30 @@ export function App({
 
   // keep the selected row in view as you navigate
   useEffect(() => {
-    const id = rows[selSafe]?.sid
-    if (id) sbRef.current?.scrollChildIntoView?.(id)
-  }, [selSafe, rows.length])
+    if (curSid) sbRef.current?.scrollChildIntoView?.(curSid)
+  }, [curSid, rows.length])
+
+  // flight recorder: record status flips (seed silently on the first snapshot)
+  // + tap on the shoulder when an agent starts needing you
+  useEffect(() => {
+    if (snap.agents.length === 0 && !prevStatuses.current) return
+    if (prevStatuses.current) {
+      const trs = diffTransitions(prevStatuses.current, snap.agents, Date.now())
+      if (trs.length) {
+        setEvents((e) => [...e, ...trs].slice(-100))
+        if (live && notifyOn) {
+          for (const tr of trs) {
+            if (tr.from === undefined) continue // appearances aren't news
+            if (tr.to !== "waiting" && tr.to !== "error") continue
+            const a = snap.agents.find((x) => x.id === tr.id)
+            const body = a?.question ?? (tr.to === "error" ? "turn failed" : "needs your input")
+            void notify(`fleet — ${tr.project}`, body)
+          }
+        }
+      }
+    }
+    prevStatuses.current = new Map(snap.agents.map((a) => [a.id, a.status]))
+  }, [snap, live, notifyOn])
 
   useKeyboard((key) => {
     const k = key.name
@@ -143,41 +219,74 @@ export function App({
       else if (k === "q") quit()
       return
     }
+    if (log) {
+      if (k === "t" || k === "escape") setLog(false)
+      else if (k === "q") quit()
+      return
+    }
     if (k === "?") return setHelp(true)
+    if (k === "t") return setLog(true)
 
-    if (k === "j" || k === "down") setSel((s) => Math.min(s + 1, rows.length - 1))
-    else if (k === "k" || k === "up") setSel((s) => Math.max(s - 1, 0))
-    else if (k === "g") setSel(0)
-    else if (k === "G") setSel(rows.length - 1)
+    if (k === "j" || k === "down") move(1)
+    else if (k === "k" || k === "up") move(-1)
+    // shifted letters arrive as lowercase name + shift flag
+    else if (k === "g" || k === "G")
+      setSelSid((k === "G" || key.shift ? rows[rows.length - 1] : rows[0])?.sid ?? "h-agents")
     else if (k === "right" || k === "l") {
-      // expand a collapsed section, or step into its content
-      if (cur?.kind === "header") {
-        if (!open[cur.section]) toggle(cur.section)
-        else setSel((s) => Math.min(s + 1, rows.length - 1))
-      }
+      if (!cur) return
+      if (cur.kind === "header") {
+        if (!open[cur.section]) toggleSection(cur.section)
+        else move(1)
+      } else if (cur.kind !== "wtitem") setRowOpen(cur.sid, true)
     } else if (k === "left" || k === "h") {
-      // collapse an expanded section, or jump from an item up to its header
-      if (cur?.kind === "header") {
-        if (open[cur.section]) toggle(cur.section)
-      } else if (cur) {
+      if (!cur) return
+      if (cur.kind === "header") {
+        if (open[cur.section]) toggleSection(cur.section)
+      } else if (cur.kind === "wtitem") setSelSid(`w-${cur.repo.repo}`)
+      else if (openRows.has(cur.sid)) setRowOpen(cur.sid, false)
+      else {
         const idx = rows.findIndex((r) => r.kind === "header" && r.section === cur.section)
-        if (idx >= 0) setSel(idx)
+        if (idx >= 0) setSelSid(rows[idx].sid)
       }
     } else if (k === "i") setShowIdle((v) => !v)
     else if (k === "return" || k === "space") {
       if (!cur) return
-      if (cur.kind === "header") toggle(cur.section)
-      else if (cur.kind === "agent") {
-        void copyResume(cur.agent.id)
-        flash(`copied  ${resumeCommand(cur.agent.id.slice(0, 8) + "…")}`)
-      } else if (cur.kind === "server") {
-        void copyText(`http://localhost:${cur.server.port}`)
-        flash(`copied  localhost:${cur.server.port}`)
+      if (cur.kind === "header") toggleSection(cur.section)
+      else if (cur.kind !== "wtitem") setRowOpen(cur.sid, !openRows.has(cur.sid))
+    } else if (k === "o") {
+      if (cur?.kind === "agent") {
+        void focusClaude(cur.agent.kind === "claude" ? cur.agent.id : undefined)
+        flash("opening Claude…")
+      } else if (cur?.kind === "server") {
+        void openServer(cur.server.port)
+        flash(`opening localhost:${cur.server.port}`)
       }
+    } else if (k === "p") {
+      if (cur?.kind === "wtitem") {
+        const { repo, item } = cur
+        if (item.dirty > 0) flash(`${item.name} has ${item.dirty} dirty files — not pruning`)
+        else if (snap.agents.some((a) => a.cwd === item.path)) flash(`an agent is running in ${item.name}`)
+        else
+          setConfirm({
+            label: `prune ${repo.repo}/${item.name} (clean, ${item.ageDays === 0 ? "today" : `${item.ageDays}d`})?`,
+            run: () => {
+              void pruneWorktree(repo.path, item.path).then((ok) => {
+                flash(ok ? `pruned ${item.name}` : `prune failed — ${item.name}`)
+                invalidateWorktrees()
+                void refresh(true)
+              })
+            },
+          })
+      }
+    } else if (k === "n") {
+      setNotifyOn((v) => {
+        flash(v ? "notifications off" : "notifications on")
+        return !v
+      })
     } else if (k === "c") {
       if (cur?.kind === "agent") {
         void copyResume(cur.agent.id)
-        flash("copied resume")
+        flash(`copied  ${resumeCommand(cur.agent.id.slice(0, 8) + "…")}`)
       } else if (cur?.kind === "server") {
         void copyText(`http://localhost:${cur.server.port}`)
         flash(`copied  localhost:${cur.server.port}`)
@@ -187,16 +296,18 @@ export function App({
         setConfirm({
           label: `kill ${cur.agent.project} · pid ${cur.agent.pid}?`,
           run: () => {
-            void killProcess(cur.agent.pid)
-            flash(`killed pid ${cur.agent.pid}`)
+            void killProcess(cur.agent.pid).then((ok) =>
+              flash(ok ? `killed pid ${cur.agent.pid}` : `kill failed — pid ${cur.agent.pid} still alive`),
+            )
           },
         })
       else if (cur?.kind === "server")
         setConfirm({
           label: `kill server :${cur.server.port} · pid ${cur.server.pid}?`,
           run: () => {
-            void killProcess(cur.server.pid)
-            flash(`killed :${cur.server.port}`)
+            void killProcess(cur.server.pid).then((ok) =>
+              flash(ok ? `killed :${cur.server.port}` : `kill failed — :${cur.server.port} still alive`),
+            )
           },
         })
     } else if (k === "r") {
@@ -209,111 +320,169 @@ export function App({
     ? "select"
     : cur.kind === "header"
       ? open[cur.section]
-        ? "collapse"
-        : "expand"
-      : cur.kind === "agent"
-        ? "copy"
-        : cur.kind === "server"
-          ? "copy url"
-          : "select"
+        ? "fold"
+        : "unfold"
+      : cur.kind === "worktree"
+        ? openRows.has(cur.sid)
+          ? "collapse"
+          : "trees"
+        : cur.kind === "wtitem"
+          ? "select"
+          : openRows.has(cur.sid)
+            ? "collapse"
+            : "details"
+
+  const hints: [string, string][] = short
+    ? [["?", "help"]]
+    : (() => {
+        const h: [string, string][] = [["↑↓", "move"]]
+        if (cur?.kind !== "wtitem") h.push(["⏎", primary])
+        if (cur?.kind === "agent" || cur?.kind === "server") h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
+        if (cur?.kind === "wtitem") h.push(["p", "prune"])
+        if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+        if (events.length > 0) h.push(["t", "log"])
+        h.push(["?", "help"], ["q", "quit"])
+        return h
+      })()
+
+  // the last few status flips — what you missed while looking away
+  const tickerEvents = events.slice(width > 110 ? -3 : -2)
 
   return (
-    <box flexDirection="column" width={width} height={height} padding={1}>
-      <box
-        flexGrow={1}
-        flexDirection="column"
-        border
-        borderStyle="rounded"
-        borderColor={color.faint}
-        paddingLeft={2}
-        paddingRight={2}
-        paddingTop={1}
-        paddingBottom={1}
-      >
-        {/* header */}
-        <box flexDirection="row" justifyContent="space-between">
+    <box flexDirection="column" width={width} height={height} paddingLeft={2} paddingRight={2}>
+      {/* header — the beacon: wordmark tints to the worst case, counts tell the story */}
+      <box flexShrink={0} flexDirection="row" justifyContent="space-between" paddingTop={dense ? 0 : 1}>
+        <text>
+          <span fg={beacon} attributes={TextAttributes.BOLD}>
+            fleet
+          </span>
+          {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
+          {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}
+          {ready > 0 && <span fg={color.positive}>{`  ◆${ready}`}</span>}
+          {workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
+        </text>
+        <text fg={color.dim}>
+          {fleetBurn >= 0.05 ? `$${fleetBurn.toFixed(1)}/h · ` : ""}
+          {snap.time || "…"}
+        </text>
+      </box>
+      <Rule />
+
+      {/* middle — one scrolling accordion of collapsible sections */}
+      <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
+        {help ? (
+          <HelpOverlay />
+        ) : log ? (
+          <EventLog events={events} maxRows={height - 8} />
+        ) : (
+          <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: dense ? 0 : 1 }}>
+            <Pillar
+              id="h-agents"
+              label={LABEL.agents}
+              summary={summaryFor("agents")}
+              expanded={open.agents}
+              selected={curSid === "h-agents"}
+              dense={dense}
+            >
+              {visibleAgents.length
+                ? visibleAgents.map((a) => (
+                    <box key={`a-${a.id}`} id={`a-${a.id}`}>
+                      <AgentBlock
+                        agent={a}
+                        selected={curSid === `a-${a.id}`}
+                        expanded={openRows.has(`a-${a.id}`)}
+                        width={cardWidth}
+                      />
+                    </box>
+                  ))
+                : null}
+            </Pillar>
+
+            <Pillar
+              id="h-servers"
+              label={LABEL.servers}
+              summary={summaryFor("servers")}
+              expanded={open.servers}
+              selected={curSid === "h-servers"}
+              dense={dense}
+            >
+              {snap.servers.length
+                ? snap.servers.map((s) => (
+                    <box key={`s-${s.pid}`} id={`s-${s.pid}`}>
+                      <ServerCard
+                        server={s}
+                        selected={curSid === `s-${s.pid}`}
+                        expanded={openRows.has(`s-${s.pid}`)}
+                        width={cardWidth}
+                      />
+                    </box>
+                  ))
+                : null}
+            </Pillar>
+
+            <Pillar
+              id="h-worktrees"
+              label={LABEL.worktrees}
+              summary={summaryFor("worktrees")}
+              expanded={open.worktrees}
+              selected={curSid === "h-worktrees"}
+              dense={dense}
+            >
+              {snap.worktrees.length
+                ? snap.worktrees.map((w) => (
+                    <box key={`w-${w.repo}`} flexDirection="column">
+                      <box id={`w-${w.repo}`}>
+                        <WorktreeCard
+                          wt={w}
+                          selected={curSid === `w-${w.repo}`}
+                          expanded={openRows.has(`w-${w.repo}`)}
+                        />
+                      </box>
+                      {openRows.has(`w-${w.repo}`)
+                        ? w.items.map((it) => (
+                            <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
+                              <WorktreeItemRow
+                                item={it}
+                                selected={curSid === `wi-${w.repo}-${it.name}`}
+                                width={cardWidth}
+                              />
+                            </box>
+                          ))
+                        : null}
+                    </box>
+                  ))
+                : null}
+            </Pillar>
+          </scrollbox>
+        )}
+      </box>
+
+      {/* footer */}
+      <box flexShrink={0} flexDirection="column">
+        {!short && !dense && tickerEvents.length > 0 && !log && (
           <text>
-            <span fg={color.accent} attributes={TextAttributes.BOLD}>
-              fleet
-            </span>
+            {tickerEvents.map((e, i) => (
+              <span key={`${e.t}-${e.id}-${i}`}>
+                {i > 0 && <span fg={color.faint}>{"   "}</span>}
+                <span fg={color.faint}>{clock(e.t)} </span>
+                <span fg={color.dim}>{e.project} </span>
+                <span fg={statusColor(e.to)}>
+                  {statusGlyph(e.to)} {e.to}
+                </span>
+              </span>
+            ))}
           </text>
-          <text fg={color.dim}>{snap.time || "…"}</text>
-        </box>
-
-        <box paddingTop={1}>
-          <Rule />
-        </box>
-
-        {/* middle — one scrolling accordion of collapsible sections */}
-        <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={1}>
-          {help ? (
-            <HelpOverlay />
+        )}
+        <Rule />
+        <box paddingBottom={dense ? 0 : 1}>
+          {confirm ? (
+            <text>
+              <span fg={color.attention}>{confirm.label}</span>
+              <span fg={color.dim}>{"   "}y / n</span>
+            </text>
           ) : (
-            <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: 1 }}>
-              <Pillar
-                id="h-agents"
-                label={LABEL.agents}
-                summary={summaryFor("agents")}
-                expanded={open.agents}
-                selected={selSid === "h-agents"}
-              >
-                {visibleAgents.length
-                  ? visibleAgents.map((a) => (
-                      <box key={`a-${a.id}`} id={`a-${a.id}`}>
-                        <AgentBlock agent={a} selected={selSid === `a-${a.id}`} />
-                      </box>
-                    ))
-                  : null}
-              </Pillar>
-
-              <Pillar
-                id="h-servers"
-                label={LABEL.servers}
-                summary={summaryFor("servers")}
-                expanded={open.servers}
-                selected={selSid === "h-servers"}
-              >
-                {snap.servers.length
-                  ? snap.servers.map((s) => (
-                      <box key={`s-${s.pid}`} id={`s-${s.pid}`}>
-                        <ServerCard server={s} selected={selSid === `s-${s.pid}`} compact={compact} />
-                      </box>
-                    ))
-                  : null}
-              </Pillar>
-
-              <Pillar
-                id="h-worktrees"
-                label={LABEL.worktrees}
-                summary={summaryFor("worktrees")}
-                expanded={open.worktrees}
-                selected={selSid === "h-worktrees"}
-              >
-                {snap.worktrees.length
-                  ? snap.worktrees.map((w) => (
-                      <box key={`w-${w.repo}`} id={`w-${w.repo}`}>
-                        <WorktreeCard wt={w} selected={selSid === `w-${w.repo}`} />
-                      </box>
-                    ))
-                  : null}
-              </Pillar>
-            </scrollbox>
+            <Footer hints={hints} toast={toast} />
           )}
-        </box>
-
-        {/* footer */}
-        <box flexShrink={0} flexDirection="column" paddingTop={1}>
-          <Rule />
-          <box paddingTop={1}>
-            {confirm ? (
-              <text>
-                <span fg={color.attention}>{confirm.label}</span>
-                <span fg={color.dim}>{"   "}y / n</span>
-              </text>
-            ) : (
-              <Footer toast={toast} primary={primary} />
-            )}
-          </box>
         </box>
       </box>
     </box>

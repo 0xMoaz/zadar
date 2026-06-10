@@ -2,12 +2,19 @@ import { color } from "../theme"
 
 const ROWS: [string, string][] = [
   ["j / k   ↓ / ↑", "move selection"],
-  ["g / G", "first / last agent"],
-  ["⏎  or  c", "copy `claude --resume <id>` to clipboard"],
-  ["x", "kill selected agent (asks to confirm)"],
+  ["g / G", "first / last row"],
+  ["⏎", "expand / collapse details (or fold a section)"],
+  ["← / →   h / l", "fold section · close / open details"],
+  ["o", "open — Claude app (agent) / browser (server)"],
+  ["c", "copy resume command (agent) / url (server)"],
+  ["x", "kill agent or server (asks to confirm)"],
+  ["p", "prune a clean worktree (asks to confirm)"],
+  ["t", "activity log — every status flip this session"],
+  ["n", "toggle desktop notifications (on by default)"],
+  ["i", "show / hide idle sessions"],
   ["r", "refresh now"],
   ["?", "toggle this help"],
-  ["q  /  esc", "quit"],
+  ["q", "quit"],
 ]
 
 export function HelpOverlay() {
