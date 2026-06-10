@@ -1,6 +1,7 @@
-import { basename } from "node:path"
+import { identityOf, STATUS_RANK } from "./fleetmap"
 import { discoverAgents, branchOf } from "./collectors/process"
 import { parseClaude } from "./transcript/claude"
+import { parseCodex } from "./transcript/codex"
 import { collectServers } from "./collectors/servers"
 import { collectWorktrees } from "./collectors/worktrees"
 import { diffOf } from "./collectors/diff"
@@ -26,22 +27,6 @@ function prettyModel(m: string): string {
   return oneM ? `${s} 1m` : s
 }
 
-/** Sessions inside .claude/worktrees/<wt> belong to the parent repo — keep both names. */
-export function identityOf(cwd: string): { project: string; wt?: string } {
-  const m = cwd.match(/\/([^/]+)\/\.claude\/worktrees\/([^/]+)\/?$/)
-  if (m) return { project: m[1], wt: m[2] }
-  return { project: basename(cwd) || "?" }
-}
-
-/** triage order: needs you first, then output to review, then the rest */
-const STATUS_RANK: Record<AgentStatus, number> = {
-  waiting: 0,
-  error: 1,
-  ready: 2,
-  working: 3,
-  unknown: 4,
-  idle: 5,
-}
 
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 function hhmm(ms: number): string {
@@ -93,27 +78,43 @@ export async function collect(): Promise<Snapshot> {
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
+        rhythm: s?.rhythm,
       })
     } else {
-      // codex — transcript not parsed yet: show the process honestly as unknown.
+      // codex — parsed from ~/.codex/sessions (window + totals live in-file)
+      const s = parseCodex(p.cwd, p.model, now)
+      const id = s?.sessionId ?? String(p.pid)
+      const costUsd = s?.costUsd ?? 0
+      const contextPct = s?.contextPct ?? 0
+
+      const samples = pushSample(burns.get(id) ?? [], now, costUsd)
+      burns.set(id, samples)
+      const g = trackGhost(ghosts.get(id), contextPct, now)
+      ghosts.set(id, g)
+
       agents.push({
-        id: String(p.pid),
+        id,
         pid: p.pid,
         kind: "codex",
         project,
         wt,
         cwd: p.cwd,
         branch,
-        model: prettyModel(p.model) || "codex",
-        status: "unknown",
+        model: prettyModel(p.model) || s?.model || "codex",
+        status: s?.status ?? "unknown",
         procs: 1,
-        lastActivity: "transcript not parsed yet",
-        recent: [],
-        contextPct: 0,
-        costUsd: 0,
-        tokens: 0,
+        lastActivity: s?.lastActivity ?? "no session file found",
+        recent: s?.recent ?? [],
+        contextPct,
+        ctxGhostPct: ghostVisible(g, now),
+        costUsd,
+        burnPerHour: burnRate(samples),
+        planPct: s?.planPct,
+        diff: await diffOf(p.cwd, now),
+        tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
-        idleSec: 0,
+        idleSec: s?.idleSec ?? 0,
+        rhythm: s?.rhythm,
       })
     }
   }

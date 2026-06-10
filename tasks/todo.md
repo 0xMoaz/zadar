@@ -1,3 +1,65 @@
+# fleet v3 — attention queue + project map
+
+Branch: `overhaul/v3-attention-queue` (off v2). The rethink: **attention is
+the primary axis, not resource type**. A ranked NEEDS-YOU queue unifies every
+actionable item (questions, approvals, errors, reviews, sick servers); below
+it a *stable, alphabetical* project map — urgency reorders the queue, never
+the map (spatial memory stays intact). `v` toggles back to the v2 type view.
+
+## Phase A — Codex truth (the honest gap)
+- [x] transcript/codex.ts: session discovery (scan recent days, match
+      session_meta.cwd, cache path→cwd), token_count info → ctx% + cost,
+      task lifecycle → working/ready/idle, agent_message previews,
+      plan-quota % (rate_limits) — grounded against real files
+- [x] tests with synthetic fixtures matching the real shapes
+- [x] wire into collect; codex rows get real vitals
+
+## Phase B — the model (pure + tested)
+- [x] fleetmap.ts: groupByProject (agents + servers + worktrees → one
+      entity; identityOf applied to server cwds) — alphabetical, stable
+- [x] attentionQueue: ranked items (question > approval > error >
+      server-mem > ready > ctx-high > stale-server), action-sentence titles
+
+## Phase C — the new face
+- [x] NEEDS YOU zone: queue items with inline chips; Enter expands the
+      underlying entity in place; x/o/c act directly
+- [x] PROJECTS zone: one card per repo — status glyph, agents ·server ·trees
+      summary, cost; Enter expands to full agent/server/worktree rows
+- [x] `v` toggles classic v2 type view (components shared)
+- [x] empty queue = the calm face: "nothing needs you"
+
+## Phase D — living layer
+- [x] EKG rhythm: per-agent activity sparkline from tail timestamps
+      (catches stalls and retry-loops at a glance)
+- [x] project identity hues: 1-cell chip per project, muted, never on text
+- [x] flight recorder persists to ~/.zefleet/events.jsonl; today's log
+      reloads on boot; empty state shows today's story
+- [x] codex plan-quota in detail meta
+
+## Phase E — hardening + PR
+- [x] interaction tests for queue nav/actions, map expand, view toggle
+- [x] smoke shots incl. queue-empty serene state; typecheck; full suite
+- [x] README/DESIGN v3 addendum; PR with base = v2 branch (3-way lineage:
+      main = v1, v2 branch, v3 branch)
+
+## Review log
+
+- **Phase A** (1 commit): Codex parser grounded against real ~/.codex files
+  before writing a line — token_count info can be null (rate_limits still
+  present); session_meta first lines reach tens of KB (headLine reads 128KB).
+  6 fixture tests.
+- **Phase B** (1 commit): groupByProject + attentionQueue pure and tested
+  (9 tests) before any UI. identityOf/STATUS_RANK unified in fleetmap.
+- **Phase C** (1 commit): two-view App; queue items carry their targets so
+  o/c/x act through them. Tests caught two honest assertion bugs (viewport
+  culling; at-rest rows no longer show activity by design).
+- **Phase D** (1 commit): EKG from real timestamps, identity hues on 1-cell
+  dots only, flight recorder persists + reloads today.
+- **Phase E**: 85 tests green; live probe re-verified on this machine.
+
+
+---
+
 # fleet v2 — "living fleet" overhaul
 
 Branch: `overhaul/v2-living-fleet`. Goal: precision (the display never lies),

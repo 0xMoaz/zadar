@@ -7,13 +7,21 @@ import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { App } from "./App"
 import { mockSnapshot } from "./mock"
+import type { Snapshot } from "./types"
 
-async function shot(label: string, width: number, height: number, keys: string[] = []) {
-  const setup = await testRender(<App snapshot={mockSnapshot} live={false} />, { width, height })
+// a calm fleet: everyone working or idle, servers healthy → the queue is clear
+const calmSnapshot: Snapshot = {
+  ...mockSnapshot,
+  agents: mockSnapshot.agents.filter((a) => a.status === "working" && a.contextPct < 90),
+  servers: mockSnapshot.servers.filter((s) => !s.stale && s.memKB < 4 * 1024 * 1024),
+}
+
+async function shot(label: string, width: number, height: number, keys: string[] = [], snapshot = mockSnapshot) {
+  const setup = await testRender(<App snapshot={snapshot} live={false} />, { width, height })
   await setup.renderOnce()
   for (const k of keys) {
     await act(async () => {
-      await setup.mockInput.pressKey(k)
+      await setup.mockInput.pressKey(k as any)
     })
     await act(async () => {
       await setup.renderOnce()
@@ -24,11 +32,13 @@ async function shot(label: string, width: number, height: number, keys: string[]
   setup.renderer.destroy()
 }
 
-await shot("DEFAULT — active only (100×34)", 100, 34)
-await shot("DETAILS — first agent expanded (100×36)", 100, 36, ["j", "RETURN"])
-await shot("SHOW ALL — idle revealed (100×38)", 100, 38, ["i"])
-await shot("NARROW (72×36)", 72, 36)
+await shot("HOME — strip + sessions first (100×40)", 100, 40)
+await shot("HOME — serene: no strip at all (90×24)", 90, 24, [], calmSnapshot)
+await shot("HOME — projects drilled (100×46)", 100, 46, [
+  "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN",
+])
+await shot("MAP — via v: the full queue (100×42)", 100, 42, ["v"])
+await shot("NARROW HOME (72×36)", 72, 36)
 await shot("DENSE SPLIT (84×18)", 84, 18)
-await shot("WORKTREES — drilled into a repo (90×30)", 90, 30, ["RETURN", "j", "j", "RETURN", "j", "RETURN"])
 
 process.exit(0)

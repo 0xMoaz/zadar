@@ -1,7 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
-import { color, glyph, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
-import { ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, wrapText } from "../format"
+import { color, glyph, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
+import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 
 const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
 const INDENT = "     " // aligns content under the row name (gutter + glyph + space)
@@ -51,11 +51,17 @@ export function AgentBlock({
 
   const questionLines =
     waiting && agent.waitKind === "question" && agent.question
-      ? wrapText(`"${agent.question}"`, textW, 3)
+      ? wrapText(`“${agent.question}”`, textW, 3)
       : []
   const noteLine = urgent && agent.waitKind !== "question" ? agent.question : undefined
 
   const showDiff = agent.status === "ready" && agent.diff && agent.diff.files > 0
+  // the vitals grid: every slot has a fixed width so columns never drift —
+  // EKG (12 + gutter, wide only) · bar (6) · pct (4) · ghost (1) · cost (7)
+  const ekgSlot =
+    width >= 90
+      ? (agent.status === "working" && agent.rhythm ? sparkline(agent.rhythm).padStart(12) : " ".repeat(12)) + "  "
+      : ""
 
   return (
     <box flexDirection="column">
@@ -65,9 +71,14 @@ export function AgentBlock({
           <span fg={color.accent}>{selected ? glyph.gutter : " "}</span>
           <span fg={glyphColor}>{statusGlyph(agent.status)} </span>
           <span fg={nameColor} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
-            {name}
+            {clip(name, narrow ? 18 : 28)}
           </span>
-          {!narrow && <span fg={idle ? color.faint : color.dim}>{agent.branch ? ` · ${agent.branch}` : ""}</span>}
+          {!narrow && agent.branch ? (
+            <span>
+              <span fg={projectHue(agent.project)}>{" · "}</span>
+              <span fg={idle ? color.faint : color.dim}>{clip(agent.branch, 24)}</span>
+            </span>
+          ) : null}
           {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
           {agent.kind === "codex" && <span fg={color.faint}>{"  ·codex"}</span>}
         </text>
@@ -82,8 +93,12 @@ export function AgentBlock({
               {agent.diff!.files} {agent.diff!.files === 1 ? "file" : "files"}
             </span>
           </text>
+        ) : agent.status === "unknown" ? (
+          <text fg={color.faint}>—</text>
         ) : (
           <text>
+            {/* the EKG: real transcript cadence — dense = cranking, flat = stalled */}
+            {ekgSlot && <span fg={color.dim}>{ekgSlot}</span>}
             {!narrow && (
               <span>
                 <span fg={ctxColor(agent.contextPct)}>{cells.filled}</span>
@@ -92,8 +107,8 @@ export function AgentBlock({
               </span>
             )}
             <span fg={ctxColor(agent.contextPct)}> {String(Math.round(agent.contextPct)).padStart(3)}%</span>
-            {agent.ctxGhostPct !== undefined && <span fg={color.dim}>⟳</span>}
-            <span fg={idle ? color.dim : color.fg}>  {fmtCost(agent.costUsd)}</span>
+            <span fg={color.dim}>{agent.ctxGhostPct !== undefined ? "⟳" : " "}</span>
+            <span fg={idle ? color.dim : color.fg}> {fmtCost(agent.costUsd).padStart(6)}</span>
           </text>
         )}
       </box>
@@ -140,6 +155,9 @@ export function AgentBlock({
             </span>
             {agent.burnPerHour !== undefined && agent.burnPerHour >= 0.05 && (
               <span fg={color.dim}> · ${agent.burnPerHour.toFixed(1)}/h</span>
+            )}
+            {agent.planPct !== undefined && (
+              <span fg={agent.planPct >= 80 ? color.attention : color.dim}> · plan {Math.round(agent.planPct)}%</span>
             )}
             {urgent && (
               <span fg={ctxColor(agent.contextPct)}>

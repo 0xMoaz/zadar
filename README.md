@@ -18,11 +18,13 @@ It's the ambient, terminal-native complement to a desktop console like Readout:
 same data universe, opposite ergonomics — fleet lives in your peripheral vision
 while you work.
 
-**Status:** working OpenTUI prototype. v1 ships one beautiful, reliable slice —
-**live agent awareness** (Claude Code today; Codex shown but not yet transcript-
-parsed) — and grows toward broad parity from there. Built on OpenTUI 0.3.x
-(Bun + React); the bash scripts in [reference/](./reference/) remain the data
-contract.
+**Status:** working OpenTUI app, three generations deep — v1 (`main`): the
+port; v2 (`overhaul/v2-living-fleet`): truthful states + progressive
+disclosure + living signal; v3 (`overhaul/v3-attention-queue`): the attention
+map + **full Codex transcript parsing** (context %, cost, task lifecycle, and
+plan-quota burn read straight from `~/.codex/sessions`). Built on OpenTUI
+0.3.x (Bun + React); the bash scripts in [reference/](./reference/) remain
+the original data contract.
 
 ## Install & run
 
@@ -51,10 +53,23 @@ chmod +x ~/.local/bin/zefleet
 > dashboard*, which prints one frame and exits. Use `zefleet` (above), or
 > repoint `~/.local/bin/fleet` once you're ready to retire the bash version.
 
-**Keys:** `↑↓`/`jk` move · `⏎` disclose details / fold a section · `←→`/`hl`
-fold · `o` open (Claude app / browser) · `c` copy (resume / url) · `x` kill ·
-`p` prune a clean worktree · `t` activity log · `n` notifications · `i` idle ·
-`r` refresh · `?` help · `q` quit.
+**The default view is home: sessions first.** **SESSIONS** opens expanded
+(status-sorted, urgent rows auto-expand their literal question), with
+**SERVERS** and **PROJECTS** (repos: cost, server, worktrees + guarded
+pruning) folded beneath. When something needs you, a thin **strip** appears
+above the sections with the most urgent items — urgency is presence: a calm
+fleet has no strip at all. `v` opens the full ranked queue + project map.
+
+**Keys:** `↑↓`/`jk` move · `⏎` inspect / open / fold · `v` switch view ·
+`←→`/`hl` fold · `o` open (Claude app / browser) · `c` copy (resume / url) ·
+`x` kill · `p` prune a clean worktree · `t` activity log · `n` notifications ·
+`i` idle · `r` refresh · `?` help · `q` quit.
+
+**Local data API:** `zefleet --api [port]` additionally serves the same truth
+as JSON on `127.0.0.1:7433` — `GET /snapshot` (the full fleet state) and
+`GET /events` (today's status flips). A richer surface (web, Readout, a
+menubar widget) can mount fleet's data without fleet losing its terminal
+identity.
 
 **States:** `▲` waiting on you (literal question, or a tool pending >2m) ·
 `✕` error · `◆` ready — turn finished, output awaiting your review (badged

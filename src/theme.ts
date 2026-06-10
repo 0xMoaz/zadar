@@ -90,6 +90,17 @@ export function waitColor(sec: number): RGBA {
   return color.dim
 }
 
+// muted identity hues — distinct from every semantic color, quiet enough to
+// never compete with escalation. Applied to 1-cell separators only, never text.
+const HUES = ["#7E9CD8", "#957FB8", "#D27E99", "#6A9589", "#C0A36E", "#A292A3"].map(RGBA.fromHex)
+
+/** stable per-project hue — binds an entity's rows across zones and views */
+export function projectHue(name: string): RGBA {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return HUES[h % HUES.length]
+}
+
 export function serverMemColor(kb: number): RGBA {
   if (kb > 4 * 1024 * 1024) return color.danger
   if (kb > 1.5 * 1024 * 1024) return color.attention

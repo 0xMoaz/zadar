@@ -7,14 +7,18 @@ export function fmtDuration(sec: number): string {
   return m > 0 ? `${h}h${m}m` : `${h}h`
 }
 
-/** KB → "14G" · "9.8G" · "512M" */
+/** KB → "14G" · "9.8G" · "512M" — two significant figures, no noise decimals */
 export function fmtMem(kb: number): string {
-  if (kb > 1048576) return `${(kb / 1048576).toFixed(1)}G`
+  if (kb > 1048576) {
+    const g = kb / 1048576
+    return g >= 10 ? `${Math.round(g)}G` : `${g.toFixed(1)}G`
+  }
   return `${Math.round(kb / 1024)}M`
 }
 
-/** tokens → "192k" · "1.2M" */
+/** tokens → "192k" · "1.2M" · "30M" */
 export function fmtTokens(n: number): string {
+  if (n >= 10_000_000) return `${Math.round(n / 1_000_000)}M`
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1000) return `${Math.round(n / 1000)}k`
   return `${n}`
@@ -96,8 +100,3 @@ export function wrapText(s: string, width: number, maxLines = 3): string[] {
   return lines.map((l) => clip(l, width))
 }
 
-/** pad/truncate to an exact column width (monospace-safe for ASCII-ish content) */
-export function col(s: string, width: number, align: "left" | "right" = "left"): string {
-  if (s.length > width) return s.slice(0, Math.max(0, width - 1)) + "…"
-  return align === "right" ? s.padStart(width) : s.padEnd(width)
-}
