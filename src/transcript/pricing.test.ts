@@ -29,7 +29,7 @@ describe("costOf", () => {
 
 describe("accrueCost — per-event model pricing", () => {
   test("a session that switches models prices each event at its own model", () => {
-    const dir = mkdtempSync(join(tmpdir(), "zefleet-"))
+    const dir = mkdtempSync(join(tmpdir(), "zadar-"))
     const path = join(dir, "mixed.jsonl")
     const usage = {
       input_tokens: 1_000_000,
@@ -47,7 +47,7 @@ describe("accrueCost — per-event model pricing", () => {
   })
 
   test("duplicate (requestId, message.id) events are counted once", () => {
-    const dir = mkdtempSync(join(tmpdir(), "zefleet-"))
+    const dir = mkdtempSync(join(tmpdir(), "zadar-"))
     const path = join(dir, "dupes.jsonl")
     const usage = { input_tokens: 100, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
     const line = JSON.stringify({

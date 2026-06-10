@@ -5,9 +5,9 @@ import pkg from "../package.json"
 /** the running version — bundled into the compiled binary via the JSON import */
 export const VERSION: string = pkg.version
 
-const CACHE = join(process.env.HOME ?? "", ".zefleet", "update.json")
+const CACHE = join(process.env.HOME ?? "", ".zadar", "update.json")
 const TTL = 24 * 3600_000
-const REGISTRY = "https://registry.npmjs.org/zefleet/latest"
+const REGISTRY = "https://registry.npmjs.org/zadar/latest"
 
 export type InstallKind = "binary" | "source"
 
@@ -19,11 +19,11 @@ export function installKind(execPath = process.execPath): InstallKind {
   return /(^|\/)bun(x)?([.-][\w.]+)?$/.test(execPath) ? "source" : "binary"
 }
 
-export const INSTALLER_URL = "https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh"
+export const INSTALLER_URL = "https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh"
 
 /** the right upgrade command for how this copy was installed */
 export function upgradeHint(kind: InstallKind = installKind()): string {
-  return kind === "binary" ? "zefleet upgrade" : "bun add -g zefleet@latest"
+  return kind === "binary" ? "zadar upgrade" : "bun add -g zadar@latest"
 }
 
 /** true when `b` is a higher semver than `a` (major.minor.patch, numeric) */

@@ -41,7 +41,7 @@ export function HelpOverlay({ version, updateVer }: { version: string; updateVer
         </box>
       ))}
       <box paddingTop={1} flexDirection="column">
-        <text fg={color.faint}>fleet v{version} · terminal mission control for parallel agents</text>
+        <text fg={color.faint}>zadar v{version} · terminal mission control for parallel agents</text>
         {updateVer ? (
           <text>
             <span fg={color.positive}>↑ v{updateVer} available</span>

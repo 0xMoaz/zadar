@@ -11,12 +11,12 @@ describe("installKind", () => {
     expect(installKind("/opt/homebrew/bin/bun-1.3.10")).toBe("source")
   })
   test("a compiled standalone → binary", () => {
-    expect(installKind("/Users/zee/.zefleet/bin/zefleet")).toBe("binary")
-    expect(installKind("/usr/local/bin/zefleet")).toBe("binary")
+    expect(installKind("/Users/zee/.zadar/bin/zadar")).toBe("binary")
+    expect(installKind("/usr/local/bin/zadar")).toBe("binary")
   })
   test("hints match the install", () => {
-    expect(upgradeHint("binary")).toBe("zefleet upgrade")
-    expect(upgradeHint("source")).toBe("bun add -g zefleet@latest")
+    expect(upgradeHint("binary")).toBe("zadar upgrade")
+    expect(upgradeHint("source")).toBe("bun add -g zadar@latest")
   })
 })
 

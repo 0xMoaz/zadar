@@ -1,9 +1,9 @@
-# zefleet
+# zadar
 
-**Terminal mission control for parallel agentic dev.** While you've got 4+
-Claude Code / Codex agents running across git worktrees, fleet is the always-open
-split that answers — in under a second of glance — **which agent needs you right
-now**, and shows you *the exact question it's blocked on*:
+**Radar for your agent fleet.** While you've got 4+ Claude Code / Codex
+agents running across git worktrees, zadar is the always-open split that
+answers — in under a second of glance — **which agent needs you right now**,
+and shows you *the exact question it's blocked on*:
 
 ```
 ▲ webapp · fix/auth   waiting · 8m
@@ -15,8 +15,8 @@ what's eating your machine — and lets you act (kill stale servers, prune
 worktrees) without leaving the terminal.
 
 It's the ambient, terminal-native complement to a desktop console like Readout:
-same data universe, opposite ergonomics — fleet lives in your peripheral vision
-while you work.
+same data universe, opposite ergonomics — zadar lives in your peripheral vision
+while you work, the way a radar scope does.
 
 **Status:** working OpenTUI app, three generations deep — all merged to
 `main`, each tagged so you can `git checkout` any era. `v1`: the port. `v2`:
@@ -31,16 +31,16 @@ data contract.
 
 ```bash
 # macOS standalone binary — no Bun, no Node, no deps (curl installer)
-curl -fsSL https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh | bash
 
 # or, with Bun installed:
-bunx zefleet                   # zero-install try
-bun add -g zefleet             # keep it
+bunx zadar                     # zero-install try
+bun add -g zadar               # keep it
 ```
 
-Updating: fleet checks the registry ambiently (once a day, never blocking)
+Updating: zadar checks the registry ambiently (once a day, never blocking)
 and shows a faint `↑version` in the header when you're behind — then
-`zefleet upgrade` updates in place, using whichever way you installed.
+`zadar upgrade` updates in place, using whichever way you installed.
 
 Releases are built by CI on git tags: each platform compiles a standalone
 binary with the Bun runtime embedded (`bun build --compile`). macOS arm64 +
@@ -56,17 +56,16 @@ bun test                      # unit + headless interaction suite
 git checkout v1               # any era is one checkout away (v1 · v2 · v3)
 ```
 
-For a global `zefleet` command from any directory:
+For a global `zadar` command from a clone (without installing):
 
 ```bash
-printf '#!/bin/sh\nexec bun %s/src/index.tsx "$@"\n' "$(pwd)" > ~/.local/bin/zefleet
-chmod +x ~/.local/bin/zefleet
+printf '#!/bin/sh\nexec bun %s/src/index.tsx "$@"\n' "$(pwd)" > ~/.local/bin/zadar
+chmod +x ~/.local/bin/zadar
 ```
 
 > **PATH trap:** outside this repo, `bun run fleet` falls through to whatever
 > `fleet` binary is on your PATH — on this machine that's the *old bash
-> dashboard*, which prints one frame and exits. Use `zefleet` (above), or
-> repoint `~/.local/bin/fleet` once you're ready to retire the bash version.
+> dashboard*, which prints one frame and exits. Use `zadar` (above) instead.
 
 **The default view is home: sessions first.** **SESSIONS** opens expanded
 (status-sorted, urgent rows auto-expand their literal question), with
@@ -80,16 +79,16 @@ fleet has no strip at all. `v` opens the full ranked queue + project map.
 `x` kill · `p` prune a clean worktree · `t` activity log · `n` notifications ·
 `i` idle · `r` refresh · `?` help · `q` quit.
 
-**Local data API:** `zefleet --api [port]` additionally serves the same truth
+**Local data API:** `zadar --api [port]` additionally serves the same truth
 as JSON on `127.0.0.1:7433` — `GET /snapshot` (the full fleet state) and
 `GET /events` (today's status flips). A richer surface (web, Readout, a
-menubar widget) can mount fleet's data without fleet losing its terminal
+menubar widget) can mount zadar's data without it losing its terminal
 identity.
 
 **States:** `▲` waiting on you (literal question, or a tool pending >2m) ·
 `✕` error · `◆` ready — turn finished, output awaiting your review (badged
 with its diff `+214 −38`) · `●` working (brightens when the transcript is
-actually moving) · `?` unknown · `○` idle (fades with age). The `fleet`
+actually moving) · `?` unknown · `○` idle (fades with age). The `zadar`
 wordmark tints to the worst case and counts every state; a desktop
 notification fires the moment an agent starts needing you.
 
@@ -116,7 +115,7 @@ notification fires the moment an agent starts needing you.
 ## Goal
 
 Port `reference/fleet` (bash) → OpenTUI app:
-- **Repo:** `zefleet` · **CLI binary:** `fleet`
+- **Repo:** `zadar` · **CLI binary:** `zadar` (born as `zefleet`, renamed pre-launch)
 - **Stack:** Bun + `@opentui/core` + `@opentui/react`, Yoga flexbox layout
 - **Parity first** (5 sections: system · dev servers · Claude sessions · top
   memory · worktrees), **then** add interactivity (select a server/worktree,

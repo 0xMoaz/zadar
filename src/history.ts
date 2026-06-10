@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { Transition } from "./signal"
 
-const DEFAULT_FILE = join(process.env.HOME ?? "", ".zefleet", "events.jsonl")
+const DEFAULT_FILE = join(process.env.HOME ?? "", ".zadar", "events.jsonl")
 
 /** the flight recorder outlives the process — every status flip, one line each */
 export function appendEvents(trs: Transition[], file = DEFAULT_FILE): void {

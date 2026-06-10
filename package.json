@@ -1,21 +1,21 @@
 {
-  "name": "zefleet",
+  "name": "zadar",
   "version": "0.3.0",
-  "description": "Terminal mission control for parallel agentic dev — Claude Code & Codex sessions, dev servers, and git worktrees in one calm dashboard.",
+  "description": "Radar for your agent fleet — Claude Code & Codex sessions, dev servers, and git worktrees on one calm terminal scope.",
   "type": "module",
   "license": "MIT",
   "author": "0xMoaz",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xMoaz/zefleet.git"
+    "url": "git+https://github.com/0xMoaz/zadar.git"
   },
-  "homepage": "https://github.com/0xMoaz/zefleet",
-  "keywords": ["cli", "tui", "dashboard", "claude-code", "codex", "agents", "worktrees", "opentui", "bun"],
+  "homepage": "https://github.com/0xMoaz/zadar",
+  "keywords": ["cli", "tui", "radar", "dashboard", "claude-code", "codex", "agents", "worktrees", "opentui", "bun"],
   "engines": {
     "bun": ">=1.1.0"
   },
   "bin": {
-    "zefleet": "bin/zefleet.mjs"
+    "zadar": "bin/zadar.mjs"
   },
   "scripts": {
     "fleet": "bun run src/index.tsx",

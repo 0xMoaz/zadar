@@ -263,7 +263,7 @@ export function App({
             if (tr.to !== "waiting" && tr.to !== "error") continue
             const a = snap.agents.find((x) => x.id === tr.id)
             const body = a?.question ?? (tr.to === "error" ? "turn failed" : "needs your input")
-            void notify(`fleet — ${tr.project}`, body)
+            void notify(`zadar — ${tr.project}`, body)
           }
         }
       }
@@ -465,7 +465,7 @@ export function App({
       <box flexShrink={0} flexDirection="row" justifyContent="space-between" paddingTop={dense ? 0 : 1}>
         <text>
           <span fg={beacon} attributes={TextAttributes.BOLD}>
-            fleet
+            zadar
           </span>
           {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
           {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}

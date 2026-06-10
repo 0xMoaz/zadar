@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# zefleet installer — downloads the standalone binary (Bun runtime embedded,
+# zadar installer — downloads the standalone binary (Bun runtime embedded,
 # no dependencies). macOS only for now; elsewhere, Bun + bunx is the route.
 #
-#   curl -fsSL https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh | bash
 set -euo pipefail
 
-REPO="0xMoaz/zefleet"
-INSTALL_DIR="${ZEFLEET_INSTALL_DIR:-$HOME/.zefleet/bin}"
+REPO="0xMoaz/zadar"
+INSTALL_DIR="${ZADAR_INSTALL_DIR:-$HOME/.zadar/bin}"
 
 case "$(uname -s)" in
   Darwin) os="darwin" ;;
   *)
-    echo "zefleet binaries currently ship for macOS only."
-    echo "On other platforms, install Bun (https://bun.sh) and run:  bunx zefleet"
+    echo "zadar binaries currently ship for macOS only."
+    echo "On other platforms, install Bun (https://bun.sh) and run:  bunx zadar"
     exit 1
     ;;
 esac
@@ -26,12 +26,12 @@ case "$(uname -m)" in
     ;;
 esac
 
-asset="zefleet-${os}-${arch}.zip"
+asset="zadar-${os}-${arch}.zip"
 url="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep -o "https://[^\"]*${asset}" | head -1 || true)"
 
 if [ -z "${url}" ]; then
   echo "no published release found for ${asset} yet."
-  echo "Bun route in the meantime:  curl -fsSL https://bun.sh/install | bash  &&  bunx zefleet"
+  echo "Bun route in the meantime:  curl -fsSL https://bun.sh/install | bash  &&  bunx zadar"
   exit 1
 fi
 
@@ -42,9 +42,9 @@ echo "↓ ${asset}"
 curl -fsSL "$url" -o "$tmp/$asset"
 mkdir -p "$INSTALL_DIR"
 unzip -oq "$tmp/$asset" -d "$INSTALL_DIR"
-chmod +x "$INSTALL_DIR/zefleet"
+chmod +x "$INSTALL_DIR/zadar"
 
-echo "✓ installed  $INSTALL_DIR/zefleet  ($("$INSTALL_DIR/zefleet" --version))"
+echo "✓ installed  $INSTALL_DIR/zadar  ($("$INSTALL_DIR/zadar" --version))"
 
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;

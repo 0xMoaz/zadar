@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Thin Node launcher so `npx github:0xMoaz/zefleet` (and `bunx`) work everywhere.
-// zefleet is a Bun app (it uses Bun's shell + runs .tsx directly), so we hand off to Bun.
+// Thin Node launcher so `npx github:0xMoaz/zadar` (and `bunx`) work everywhere.
+// zadar is a Bun app (it uses Bun's shell + runs .tsx directly), so we hand off to Bun.
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
@@ -13,9 +13,9 @@ const child = spawn("bun", [entry, ...process.argv.slice(2)], { stdio: "inherit"
 child.on("error", (err) => {
   if (err && err.code === "ENOENT") {
     process.stderr.write(
-      "\n  zefleet runs on Bun, which isn't installed. Two ways out:\n\n" +
+      "\n  zadar runs on Bun, which isn't installed. Two ways out:\n\n" +
         "  standalone binary (no Bun needed, macOS):\n" +
-        "    curl -fsSL https://raw.githubusercontent.com/0xMoaz/zefleet/main/install.sh | bash\n\n" +
+        "    curl -fsSL https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh | bash\n\n" +
         "  or install Bun:\n" +
         "    curl -fsSL https://bun.sh/install | bash\n\n",
     )
