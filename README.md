@@ -53,18 +53,23 @@ chmod +x ~/.local/bin/zefleet
 > dashboard*, which prints one frame and exits. Use `zefleet` (above), or
 > repoint `~/.local/bin/fleet` once you're ready to retire the bash version.
 
-**The default view is the attention map.** A ranked **NEEDS YOU** queue puts
-every actionable item in one list — literal questions (with their option
-chips), tools pending approval, errors, fat or orphaned dev servers, finished
-work awaiting review — most urgent first, longest-waiting first within a
-class. Below it, **PROJECTS**: one card per repo (its agents, server, trees,
-cost) in stable alphabetical order — urgency reorders the queue, never the
-map. `v` flips to the classic agents/servers/worktrees sections.
+**The default view is home: sessions first.** **SESSIONS** opens expanded
+(status-sorted, urgent rows auto-expand their literal question), with
+**SERVERS** and **PROJECTS** (repos: cost, server, worktrees + guarded
+pruning) folded beneath. When something needs you, a thin **strip** appears
+above the sections with the most urgent items — urgency is presence: a calm
+fleet has no strip at all. `v` opens the full ranked queue + project map.
 
 **Keys:** `↑↓`/`jk` move · `⏎` inspect / open / fold · `v` switch view ·
 `←→`/`hl` fold · `o` open (Claude app / browser) · `c` copy (resume / url) ·
 `x` kill · `p` prune a clean worktree · `t` activity log · `n` notifications ·
-`i` idle (classic) · `r` refresh · `?` help · `q` quit.
+`i` idle · `r` refresh · `?` help · `q` quit.
+
+**Local data API:** `zefleet --api [port]` additionally serves the same truth
+as JSON on `127.0.0.1:7433` — `GET /snapshot` (the full fleet state) and
+`GET /events` (today's status flips). A richer surface (web, Readout, a
+menubar widget) can mount fleet's data without fleet losing its terminal
+identity.
 
 **States:** `▲` waiting on you (literal question, or a tool pending >2m) ·
 `✕` error · `◆` ready — turn finished, output awaiting your review (badged

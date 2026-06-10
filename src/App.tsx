@@ -21,7 +21,7 @@ import { appendEvents, loadToday } from "./history"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
-import { QueueItem } from "./components/QueueItem"
+import { QueueItem, QueueStripLine } from "./components/QueueItem"
 import { ProjectCard } from "./components/ProjectCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
@@ -35,14 +35,13 @@ import { TextAttributes } from "@opentui/core"
 const STALE_SEC = 20 * 60
 const isActive = (a: Agent) => a.status !== "idle" || a.idleSec < STALE_SEC
 
-type View = "map" | "classic"
-type Section = "queue" | "projects" | "agents" | "servers" | "worktrees"
+type View = "home" | "map"
+type Section = "queue" | "projects" | "sessions" | "servers"
 const LABEL: Record<Section, string> = {
   queue: "NEEDS YOU",
   projects: "PROJECTS",
-  agents: "AGENTS",
+  sessions: "SESSIONS",
   servers: "SERVERS",
-  worktrees: "WORKTREES",
 }
 
 type Row =
@@ -66,14 +65,13 @@ export function App({
   const { width, height } = useTerminalDimensions()
   const renderer = useRenderer()
   const [snap, setSnap] = useState<Snapshot>(snapshot ?? emptySnapshot)
-  const [view, setView] = useState<View>("map")
-  const [selSid, setSelSid] = useState("h-queue")
+  const [view, setView] = useState<View>("home")
+  const [selSid, setSelSid] = useState("h-sessions")
   const [open, setOpen] = useState<Record<Section, boolean>>({
     queue: true,
-    projects: true,
-    agents: true,
+    projects: false,
+    sessions: true,
     servers: false,
-    worktrees: false,
   })
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
@@ -131,20 +129,22 @@ export function App({
         }
       })
   } else {
-    rows.push({ sid: "h-agents", kind: "header", section: "agents" })
-    if (open.agents)
-      visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "agents", agent: a }))
+    rows.push({ sid: "h-sessions", kind: "header", section: "sessions" })
+    if (open.sessions)
+      visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
     rows.push({ sid: "h-servers", kind: "header", section: "servers" })
     if (open.servers)
       snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
-    rows.push({ sid: "h-worktrees", kind: "header", section: "worktrees" })
-    if (open.worktrees)
-      snap.worktrees.forEach((w) => {
-        rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "worktrees", wt: w })
-        if (openRows.has(`w-${w.repo}`))
+    rows.push({ sid: "h-projects", kind: "header", section: "projects" })
+    if (open.projects)
+      groups.forEach((g) => {
+        rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
+        if (openRows.has(`pj-${g.key}`) && g.worktrees) {
+          const w = g.worktrees
           w.items.forEach((it) =>
-            rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "worktrees", repo: w, item: it }),
+            rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
           )
+        }
       })
   }
 
@@ -162,9 +162,10 @@ export function App({
     if (s === "queue") return queue.length === 0 ? "clear" : `${queue.length} ${queue.length === 1 ? "item" : "items"}`
     if (s === "projects") {
       const cost = groups.reduce((n, g) => n + g.cost, 0)
-      return groups.length === 0 ? "none" : `${groups.length} · $${cost.toFixed(2)}`
+      if (groups.length === 0) return "none"
+      return `${groups.length}${dirtyN ? ` · ${dirtyN} dirty` : ""} · $${cost.toFixed(2)}`
     }
-    if (s === "agents") {
+    if (s === "sessions") {
       if (snap.agents.length === 0) return "none"
       const parts = [`${visibleAgents.length} active`]
       if (waiting) parts.push(`${waiting} waiting`)
@@ -172,11 +173,9 @@ export function App({
       if (idleCount && !showIdle) parts.push(`${idleCount} idle`)
       return parts.join(" · ")
     }
-    if (s === "servers")
-      return snap.servers.length === 0
-        ? "none"
-        : `${snap.servers.length} · ${fmtMem(serverMem)}${staleN ? ` · ${staleN} stale` : ""}`
-    return snap.worktrees.length === 0 ? "none" : `${snap.worktrees.length} repos · ${dirtyN} dirty`
+    return snap.servers.length === 0
+      ? "none"
+      : `${snap.servers.length} · ${fmtMem(serverMem)}${staleN ? ` · ${staleN} stale` : ""}`
   }
 
   const flash = (m: string) => {
@@ -286,9 +285,10 @@ export function App({
     if (k === "?") return setHelp(true)
     if (k === "t") return setLog(true)
     if (k === "v") {
-      const next: View = view === "map" ? "classic" : "map"
+      const next: View = view === "map" ? "home" : "map"
       setView(next)
-      setSelSid(next === "map" ? "h-queue" : "h-agents")
+      if (next === "map") setOpen((o) => ({ ...o, queue: true, projects: true }))
+      setSelSid(next === "map" ? "h-queue" : "h-sessions")
       return
     }
 
@@ -329,7 +329,7 @@ export function App({
     } else if (k === "p") {
       if (cur?.kind === "wtitem") {
         const { repo, item } = cur
-        if (item.dirty > 0) flash(`${item.name} has ${item.dirty} dirty files — not pruning`)
+        if (item.dirty > 0) flash(`${item.dirty} dirty files — not pruning`)
         else if (snap.agents.some((a) => a.cwd === item.path)) flash(`an agent is running in ${item.name}`)
         else
           setConfirm({
@@ -415,9 +415,9 @@ export function App({
         if (cur?.kind !== "wtitem") h.push(["⏎", primary])
         if (targetAgent || targetServer) h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
         if (cur?.kind === "wtitem") h.push(["p", "prune"])
-        if (view === "classic" && (idleCount > 0 || showIdle))
+        if (view === "home" && (idleCount > 0 || showIdle))
           h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
-        h.push(["v", view === "map" ? "classic" : "map"])
+        h.push(["v", view === "map" ? "home" : "queue"])
         if (events.length > 0) h.push(["t", "log"])
         h.push(["?", "help"], ["q", "quit"])
         return h
@@ -470,6 +470,21 @@ export function App({
         </text>
       </box>
       <Rule />
+
+      {/* the strip — urgency as presence: only exists while something needs you */}
+      {view === "home" && !help && !log && queue.length > 0 && (
+        <box flexShrink={0} flexDirection="column">
+          <box flexDirection="column" paddingTop={dense ? 0 : 1} paddingBottom={dense ? 0 : 1}>
+            {queue.slice(0, dense ? 1 : 2).map((it) => (
+              <QueueStripLine key={it.id} item={it} width={cardWidth} />
+            ))}
+            {queue.length > (dense ? 1 : 2) && (
+              <text fg={color.dim}>{`   +${queue.length - (dense ? 1 : 2)} more — v opens the queue`}</text>
+            )}
+          </box>
+          <Rule />
+        </box>
+      )}
 
       {/* middle — one scrolling accordion of collapsible sections */}
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
@@ -553,11 +568,11 @@ export function App({
             ) : (
               <>
                 <Pillar
-                  id="h-agents"
-                  label={LABEL.agents}
-                  summary={summaryFor("agents")}
-                  expanded={open.agents}
-                  selected={curSid === "h-agents"}
+                  id="h-sessions"
+                  label={LABEL.sessions}
+                  summary={summaryFor("sessions")}
+                  expanded={open.sessions}
+                  selected={curSid === "h-sessions"}
                   dense={dense}
                 >
                   {visibleAgents.length ? visibleAgents.map(renderAgent) : null}
@@ -575,14 +590,38 @@ export function App({
                 </Pillar>
 
                 <Pillar
-                  id="h-worktrees"
-                  label={LABEL.worktrees}
-                  summary={summaryFor("worktrees")}
-                  expanded={open.worktrees}
-                  selected={curSid === "h-worktrees"}
+                  id="h-projects"
+                  label={LABEL.projects}
+                  summary={summaryFor("projects")}
+                  expanded={open.projects}
+                  selected={curSid === "h-projects"}
                   dense={dense}
                 >
-                  {snap.worktrees.length ? snap.worktrees.map(renderWorktree) : null}
+                  {groups.length
+                    ? groups.map((g) => (
+                        <box key={`pj-${g.key}`} flexDirection="column">
+                          <box id={`pj-${g.key}`}>
+                            <ProjectCard
+                              group={g}
+                              selected={curSid === `pj-${g.key}`}
+                              expanded={openRows.has(`pj-${g.key}`)}
+                              width={cardWidth}
+                            />
+                          </box>
+                          {openRows.has(`pj-${g.key}`) && g.worktrees
+                            ? g.worktrees.items.map((it) => (
+                                <box key={`wi-${g.key}-${it.name}`} id={`wi-${g.worktrees!.repo}-${it.name}`}>
+                                  <WorktreeItemRow
+                                    item={it}
+                                    selected={curSid === `wi-${g.worktrees!.repo}-${it.name}`}
+                                    width={cardWidth}
+                                  />
+                                </box>
+                              ))
+                            : null}
+                        </box>
+                      ))
+                    : null}
                 </Pillar>
               </>
             )}
@@ -614,7 +653,7 @@ export function App({
               <span fg={color.dim}>{"   "}y / n</span>
             </text>
           ) : (
-            <Footer hints={hints} toast={toast} />
+            <Footer hints={hints} toast={toast} width={width - 4} />
           )}
         </box>
       </box>

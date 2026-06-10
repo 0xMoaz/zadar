@@ -32,11 +32,13 @@ async function shot(label: string, width: number, height: number, keys: string[]
   setup.renderer.destroy()
 }
 
-await shot("MAP — queue + projects (100×42)", 100, 42)
-await shot("MAP — serene: nothing needs you (90×24)", 90, 24, [], calmSnapshot)
-await shot("MAP — project opened (100×40)", 100, 40, ["RETURN", "j", "j", "RETURN"])
-await shot("CLASSIC — via v (100×38)", 100, 38, ["v"])
-await shot("NARROW MAP (72×36)", 72, 36)
+await shot("HOME — strip + sessions first (100×40)", 100, 40)
+await shot("HOME — serene: no strip at all (90×24)", 90, 24, [], calmSnapshot)
+await shot("HOME — projects drilled (100×46)", 100, 46, [
+  "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN",
+])
+await shot("MAP — via v: the full queue (100×42)", 100, 42, ["v"])
+await shot("NARROW HOME (72×36)", 72, 36)
 await shot("DENSE SPLIT (84×18)", 84, 18)
 
 process.exit(0)

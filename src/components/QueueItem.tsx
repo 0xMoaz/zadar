@@ -23,6 +23,23 @@ function kindGlyph(item: AttentionItem): { g: string; c: RGBA } {
   }
 }
 
+/** The strip variant: one fixed line, no chips — urgency as presence. */
+export function QueueStripLine({ item, width }: { item: AttentionItem; width: number }) {
+  const { g, c } = kindGlyph(item)
+  const title = wrapText(item.title, Math.max(16, width - item.project.length - 12), 1)[0] ?? ""
+  return (
+    <box flexDirection="row" justifyContent="space-between">
+      <text>
+        <span fg={c}>{` ${g} `}</span>
+        <span fg={color.fg}>{item.project}</span>
+        <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
+        <span fg={item.kind === "question" ? color.fg : color.dim}>{title}</span>
+      </text>
+      {item.ageSec > 0 && <text fg={c}>{fmtDuration(item.ageSec)}</text>}
+    </box>
+  )
+}
+
 /**
  * One actionable item in the NEEDS YOU queue: who — what — for how long.
  * The title is an action sentence; questions bring their option chips along.
