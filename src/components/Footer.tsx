@@ -1,16 +1,18 @@
 import { color } from "../theme"
 import { clip } from "../format"
 
-export type Hint = [key: string, label: string, icon?: string]
+export type Hint = [key: string, label: string]
+
+/** a-z → ⓐ-ⓩ keycaps — the same circled family as the ①② option chips */
+const keycap = (k: string): string =>
+  k.length === 1 && k >= "a" && k <= "z" ? String.fromCharCode(0x24d0 + k.charCodeAt(0) - 97) : k
 
 /**
- * Context-sensitive hints. When a hint has an icon, the icon IS the key's
- * visual (one symbol per action — keys are documented in ? help); otherwise
- * the key shows. Hints that don't fit are dropped, never wrapped: the footer
- * is one line, always.
+ * Context-sensitive hints: keycap + word. Hints that don't fit are dropped,
+ * never wrapped — the footer is one line, always.
  */
 export function Footer({ hints, toast = "", width }: { hints: Hint[]; toast?: string; width: number }) {
-  const wOf = ([k, label, ic]: Hint) => (ic ? 2 : k.length + 1) + label.length + 2
+  const wOf = ([k, label]: Hint) => keycap(k).length + 1 + label.length + 2
   const budget = width - (toast ? Math.min(toast.length, 24) + 2 : 0)
   const shown: Hint[] = []
   let used = 0
@@ -23,9 +25,9 @@ export function Footer({ hints, toast = "", width }: { hints: Hint[]; toast?: st
   return (
     <box flexDirection="row" justifyContent="space-between" height={1}>
       <text>
-        {shown.map(([k, label, ic]) => (
+        {shown.map(([k, label]) => (
           <span key={k + label}>
-            {ic ? <span fg={color.fg}>{ic}</span> : <span fg={color.fg}>{k}</span>}
+            <span fg={color.fg}>{keycap(k)}</span>
             <span fg={color.dim}> {label}  </span>
           </span>
         ))}

@@ -427,18 +427,17 @@ export function App({
                 : "details"
 
   const hints: Hint[] = short
-    ? [["?", "help", icon.question]]
+    ? [["?", "help"]]
     : (() => {
         const h: Hint[] = [["↑↓", "move"]]
         if (cur?.kind !== "wtitem") h.push(["⏎", primary])
-        if (targetAgent || targetServer)
-          h.push(["o", "open", icon.open], ["c", "copy", icon.copy], ["x", "kill", icon.kill])
-        if (cur?.kind === "wtitem") h.push(["p", "prune", icon.prune])
+        if (targetAgent || targetServer) h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
+        if (cur?.kind === "wtitem") h.push(["p", "prune"])
         if (view === "home" && (idleCount > 0 || showIdle))
-          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`, showIdle ? icon.eyeClosed : icon.eye])
-        h.push(["v", view === "map" ? "home" : "queue", icon.view])
-        if (events.length > 0) h.push(["t", "log", icon.history])
-        h.push(["?", "help", icon.question], ["q", "quit", icon.quit])
+          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+        h.push(["v", view === "map" ? "home" : "queue"])
+        if (events.length > 0) h.push(["t", "log"])
+        h.push(["?", "help"], ["q", "quit"])
         return h
       })()
 

@@ -40,20 +40,7 @@ export const icon = {
   repo: "", // oct-repo — projects ARE repos
   sessions: "✳", // the Claude Code asterisk (plain unicode)
   codex: "⬡", // hexagon echo of the OpenAI mark (plain unicode)
-  // footer / action vocabulary
-  open: "", // oct-link_external
-  copy: "", // oct-copy
-  kill: "", // oct-stop
-  prune: "", // oct-trash
-  eye: "", // oct-eye (show idle)
-  eyeClosed: "", // oct-eye_closed (hide idle)
-  view: "", // oct-arrow_switch
-  history: "", // oct-history
-  question: "", // oct-question
-  quit: "", // oct-sign_out
-  bell: "", // oct-bell
-  bellSlash: "", // oct-bell_slash
-  up: "", // oct-arrow_up
+  up: "", // oct-arrow_up — update available
   // story-card labels
   task: "", // oct-tasklist
   pulse: "", // oct-pulse
