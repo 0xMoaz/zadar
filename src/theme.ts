@@ -56,6 +56,13 @@ export const icon = {
 const SPINNER = ["✻", "✽", "✻", "✶", "✳", "✢", "·", "✢", "✳", "✶"] as const
 export const spinnerFrame = (tick: number): string => SPINNER[tick % SPINNER.length]
 
+// active work — braille dots (cli-spinners "dots", MIT). Distinct motion from
+// the sparkle: the sparkle means "needs you", this means "advancing". It spins
+// ONLY while an agent truthfully advances; a stalled session freezes on its
+// static dot, so motion never lies.
+const WORK = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const
+export const workFrame = (tick: number): string => WORK[tick % WORK.length]
+
 export const glyph = {
   working: "●",
   idle: "○",

@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
-import { color, glyph, icon, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
+import { color, glyph, icon, projectHue, statusColor, statusGlyph, ctxColor, waitColor, workFrame } from "../theme"
 import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 import { Stat } from "./Stat"
 import { Keycap } from "./Keycap"
@@ -25,11 +25,13 @@ export function AgentBlock({
   selected,
   expanded,
   width,
+  tick = 0,
 }: {
   agent: Agent
   selected: boolean
   expanded: boolean
   width: number
+  tick?: number
 }) {
   const waiting = agent.status === "waiting"
   const errored = agent.status === "error"
@@ -69,7 +71,7 @@ export function AgentBlock({
       <box flexDirection="row" justifyContent="space-between">
         <text>
           <span fg={color.accent}>{selected ? glyph.gutter : " "}</span>
-          <span fg={glyphColor}>{statusGlyph(agent.status)} </span>
+          <span fg={glyphColor}>{pulse ? workFrame(tick) : statusGlyph(agent.status)} </span>
           <span fg={nameColor} attributes={selected ? TextAttributes.BOLD : TextAttributes.NONE}>
             {clip(name, narrow ? 18 : 28)}
           </span>

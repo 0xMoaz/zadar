@@ -14,8 +14,8 @@ import {
   pruneWorktree,
   resumeCommand,
 } from "./actions"
-import { color, glyph, icon, statusColor, statusGlyph } from "./theme"
-import { clip, clock, fmtMem } from "./format"
+import { color, glyph, icon } from "./theme"
+import { fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
 import { checkForUpdate, VERSION } from "./update"
@@ -29,6 +29,7 @@ import { Rule } from "./components/Rule"
 import { Footer, type Hint } from "./components/Footer"
 import { HelpOverlay } from "./components/HelpOverlay"
 import { EventLog } from "./components/EventLog"
+import { StateLegend } from "./components/StateLegend"
 import { Stat } from "./components/Stat"
 import { TextAttributes } from "@opentui/core"
 
@@ -101,9 +102,13 @@ export function App({
   const queue = attentionQueue(snap)
   const groups = groupByProject(snap)
 
-  // one shared sparkle ticker — every attention item pulses in phase
+  // one shared ticker — the sparkle (needs-you) and the braille work-glyph both
+  // ride it. Runs only while something is genuinely in motion: a pending ask, or
+  // a session whose transcript advanced this poll (the same gate AgentBlock spins on).
   const [tick, setTick] = useState(0)
-  const spinning = queue.some((i) => i.kind === "question" || i.kind === "approval")
+  const spinning =
+    queue.some((i) => i.kind === "question" || i.kind === "approval") ||
+    snap.agents.some((a) => a.status === "working" && a.idleSec <= 3)
   useEffect(() => {
     if (!live || !spinning) return
     const id = setInterval(() => setTick((t) => t + 1), 120)
@@ -436,11 +441,11 @@ export function App({
   const sysHints: Hint[] = inOverlay ? [["esc", "back"]] : [["?", "help"]]
 
   // the last few status flips — what you missed while looking away
-  const tickerEvents = events.slice(width > 110 ? -3 : -2)
+  const presentStates = new Set(snap.agents.map((a) => a.status))
 
   const renderAgent = (a: Agent) => (
     <box key={`a-${a.id}`} id={`a-${a.id}`} onMouseDown={clickRow(`a-${a.id}`)}>
-      <AgentBlock agent={a} selected={curSid === `a-${a.id}`} expanded={openRows.has(`a-${a.id}`)} width={cardWidth} />
+      <AgentBlock agent={a} selected={curSid === `a-${a.id}`} expanded={openRows.has(`a-${a.id}`)} width={cardWidth} tick={tick} />
     </box>
   )
   const renderServer = (s: DevServer) => (
@@ -510,7 +515,7 @@ export function App({
                         </box>
                         {openRows.has(`q-${it.id}`) && it.agent ? (
                           <box paddingTop={dense ? 0 : 1}>
-                            <AgentBlock agent={it.agent} selected={false} expanded width={cardWidth} />
+                            <AgentBlock agent={it.agent} selected={false} expanded width={cardWidth} tick={tick} />
                           </box>
                         ) : openRows.has(`q-${it.id}`) && it.server ? (
                           <box paddingTop={dense ? 0 : 1}>
@@ -593,20 +598,9 @@ export function App({
 
       {/* footer */}
       <box flexShrink={0} flexDirection="column">
-        {!short && !dense && tickerEvents.length > 0 && !log && (
+        {!short && !dense && !log && (
           <box height={1} flexDirection="row">
-            <text>
-              {tickerEvents.map((e, i) => (
-                <span key={`${e.t}-${e.id}-${i}`}>
-                  {i > 0 && <span fg={color.faint}>{"   "}</span>}
-                  <span fg={color.faint}>{clock(e.t)} </span>
-                  <span fg={color.dim}>{clip(e.project, 20)} </span>
-                  <span fg={statusColor(e.to)}>
-                    {statusGlyph(e.to)} {e.to}
-                  </span>
-                </span>
-              ))}
-            </text>
+            <StateLegend present={presentStates} />
           </box>
         )}
         <Rule />
