@@ -160,7 +160,6 @@ export function parseClaude(
 
   const lastAssistant = [...tail].reverse().find((e) => e.type === "assistant")
   const transcriptModel: string = lastAssistant?.message?.model ?? flagModel
-  const window = windowFor(flagModel || transcriptModel)
 
   let lastUsage: any = null
   for (let i = tail.length - 1; i >= 0; i--) {
@@ -172,6 +171,10 @@ export function parseClaude(
   const occ = lastUsage
     ? (lastUsage.input_tokens ?? 0) + (lastUsage.cache_read_input_tokens ?? 0) + (lastUsage.cache_creation_input_tokens ?? 0)
     : 0
+  // the [1m] marker lives only in the CLI flag — the transcript's model string
+  // never carries it. But occupancy is proof: a session can't exceed its own
+  // window, so anything past 200k means the 1M context is active.
+  const window = Math.max(windowFor(flagModel || transcriptModel), occ > 200_000 ? 1_000_000 : 0)
   const contextPct = Math.min(100, (occ / window) * 100)
 
   const inferred = inferStatus(tail, idleSec)
