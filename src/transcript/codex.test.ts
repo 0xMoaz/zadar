@@ -67,7 +67,8 @@ describe("session discovery + full parse", () => {
       ev("task_complete"),
     ])
 
-    const sig = parseCodex(cwd, "gpt-5.5", Date.now(), root)
+    // events are stamped 2026-06-10T00:00:00Z; "now" a few seconds later → recent → ready
+    const sig = parseCodex(cwd, "gpt-5.5", Date.parse("2026-06-10T00:00:05Z"), root)
     expect(sig).not.toBeNull()
     expect(sig!.sessionId).toBe("sess-1")
     expect(sig!.status).toBe("ready")

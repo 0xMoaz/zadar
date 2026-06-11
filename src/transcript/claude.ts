@@ -156,7 +156,22 @@ export function parseClaude(
   }
   if (task) taskCache.set(sess.id, task)
   else task = taskCache.get(sess.id)
-  const idleSec = Math.max(0, (nowMs - sess.mtimeMs) / 1000)
+  // recency by real activity, not file mtime: resuming an old session rewrites the
+  // file (summary/snapshot markers) with no real turn, which would otherwise make a
+  // day-old session read as "just finished". Anchor on the last genuine user/assistant
+  // turn (tool results are user-role entries, so this tracks live work too).
+  let lastTurnMs = 0
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const e = tail[i]
+    if ((e?.type === "user" || e?.type === "assistant") && !e.isMeta && !e.isSidechain && e.timestamp) {
+      const t = Date.parse(e.timestamp)
+      if (Number.isFinite(t)) {
+        lastTurnMs = t
+        break
+      }
+    }
+  }
+  const idleSec = Math.max(0, (nowMs - (lastTurnMs || sess.mtimeMs)) / 1000)
 
   const lastAssistant = [...tail].reverse().find((e) => e.type === "assistant")
   const transcriptModel: string = lastAssistant?.message?.model ?? flagModel

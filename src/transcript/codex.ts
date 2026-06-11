@@ -111,7 +111,20 @@ export function parseCodex(cwd: string, flagModel: string, nowMs: number, root =
   const sess = findCodexSession(cwd, root)
   if (!sess) return null
   const tail = parseTail(tailText(sess.path, 128 * 1024))
-  const idleSec = Math.max(0, (nowMs - sess.mtimeMs) / 1000)
+  // recency by real activity, not file mtime (mirrors the Claude fix): a resumed
+  // session can touch the file without a real turn. Anchor on the last content event,
+  // skipping pure token_count bookkeeping.
+  let lastTurnMs = 0
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const ev = tail[i]
+    if (ev?.payload?.type === "token_count") continue
+    const ts = ev?.timestamp ? Date.parse(ev.timestamp) : NaN
+    if (Number.isFinite(ts)) {
+      lastTurnMs = ts
+      break
+    }
+  }
+  const idleSec = Math.max(0, (nowMs - (lastTurnMs || sess.mtimeMs)) / 1000)
 
   let info: any = null
   let planPct: number | undefined
