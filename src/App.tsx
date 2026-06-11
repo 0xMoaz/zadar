@@ -15,7 +15,7 @@ import {
   resumeCommand,
 } from "./actions"
 import { color, glyph, icon, spinnerFrame, statusColor, statusGlyph } from "./theme"
-import { clock, fmtMem } from "./format"
+import { clip, clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
 import { checkForUpdate, VERSION } from "./update"
@@ -664,18 +664,20 @@ export function App({
       {/* footer */}
       <box flexShrink={0} flexDirection="column">
         {!short && !dense && tickerEvents.length > 0 && !log && (
-          <text>
-            {tickerEvents.map((e, i) => (
-              <span key={`${e.t}-${e.id}-${i}`}>
-                {i > 0 && <span fg={color.faint}>{"   "}</span>}
-                <span fg={color.faint}>{clock(e.t)} </span>
-                <span fg={color.dim}>{e.project} </span>
-                <span fg={statusColor(e.to)}>
-                  {statusGlyph(e.to)} {e.to}
+          <box height={1} flexDirection="row">
+            <text>
+              {tickerEvents.map((e, i) => (
+                <span key={`${e.t}-${e.id}-${i}`}>
+                  {i > 0 && <span fg={color.faint}>{"   "}</span>}
+                  <span fg={color.faint}>{clock(e.t)} </span>
+                  <span fg={color.dim}>{clip(e.project, 20)} </span>
+                  <span fg={statusColor(e.to)}>
+                    {statusGlyph(e.to)} {e.to}
+                  </span>
                 </span>
-              </span>
-            ))}
-          </text>
+              ))}
+            </text>
+          </box>
         )}
         <Rule />
         <box paddingBottom={dense ? 0 : 1}>
