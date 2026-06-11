@@ -4,17 +4,17 @@ import { color, statusGlyph } from "../theme"
 
 type Entry = { status: AgentStatus; label: string; tone: () => RGBA }
 
-// Grouped on zadar's axis: ambient (the agent has it) │ needs you (attention owed).
-// tone is a thunk so palette overrides (applyTerminalPalette) are read at render.
+// Grouped on zadar's axis, urgency first: needs you (attention owed) │ ambient (the
+// agent has it). tone is a thunk so palette overrides (applyTerminalPalette) read at render.
 const GROUPS: Entry[][] = [
-  [
-    { status: "working", label: "working", tone: () => color.fg },
-    { status: "idle", label: "idle", tone: () => color.dim },
-  ],
   [
     { status: "waiting", label: "waiting", tone: () => color.attention },
     { status: "ready", label: "review", tone: () => color.positive },
     { status: "error", label: "error", tone: () => color.danger },
+  ],
+  [
+    { status: "working", label: "working", tone: () => color.fg },
+    { status: "idle", label: "idle", tone: () => color.dim },
   ],
 ]
 
