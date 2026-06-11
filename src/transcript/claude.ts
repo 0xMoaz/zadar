@@ -32,7 +32,24 @@ export interface ClaudeSignals {
 // e.g. /Users/zee/Code/zee.gg → -Users-zee-Code-zee-gg  (dot → dash)
 //      …/omnipair/.claude/worktrees/x → …-omnipair--claude-worktrees-x  (/. → --)
 const projectDir = (cwd: string) => join(HOME, ".claude", "projects", cwd.replace(/[^a-zA-Z0-9]/g, "-"))
-const windowFor = (model: string) => (/\[1m\]/i.test(model) ? 1_000_000 : 200_000)
+// Models that offer a 1M-token context. The [1m] flag is definitive when present,
+// but it lives only on the CLI command — a 1M session launched without it (e.g. enabled
+// via config) carries a plain model id. The user runs these at 1M, so default them to 1M
+// rather than assume 200k and lie near 100%; the occ>200k rescue still corrects anything
+// mislabeled. Parse family+version from the NEW naming (claude-<family>-<major>-<minor>) so
+// the OLD order (claude-3-5-sonnet-DATE) can't read its date suffix as a version.
+const supports1M = (model: string): boolean => {
+  const m = model.toLowerCase().match(/(?:^|claude-)(opus|sonnet|fable)-(\d+)(?:-(\d+))?/)
+  if (!m) return false
+  const [, family, majorS, minorS] = m
+  const major = Number(majorS)
+  const minor = Number(minorS ?? 0)
+  if (family === "opus") return major > 4 || (major === 4 && minor >= 6) // Opus 4.6+
+  if (family === "sonnet") return major >= 4 // Sonnet 4+
+  return major >= 5 // Fable 5+
+}
+export const windowFor = (model: string) =>
+  /\[1m\]/i.test(model) || supports1M(model) ? 1_000_000 : 200_000
 
 export function activeSession(
   cwd: string,
@@ -186,9 +203,8 @@ export function parseClaude(
   const occ = lastUsage
     ? (lastUsage.input_tokens ?? 0) + (lastUsage.cache_read_input_tokens ?? 0) + (lastUsage.cache_creation_input_tokens ?? 0)
     : 0
-  // the [1m] marker lives only in the CLI flag — the transcript's model string
-  // never carries it. But occupancy is proof: a session can't exceed its own
-  // window, so anything past 200k means the 1M context is active.
+  // window: [1m] flag or a 1M-capable model → 1M. Occupancy is the backstop proof —
+  // a session can't exceed its own window, so anything past 200k means 1M regardless.
   const window = Math.max(windowFor(flagModel || transcriptModel), occ > 200_000 ? 1_000_000 : 0)
   const contextPct = Math.min(100, (occ / window) * 100)
 
