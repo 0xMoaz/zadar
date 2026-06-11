@@ -25,8 +25,10 @@ async function press(setup: Setup, ...keys: string[]) {
   }
 }
 
-afterEach(() => {
-  current?.renderer.destroy()
+afterEach(async () => {
+  await act(async () => {
+    current?.renderer.destroy()
+  })
   current = null
 })
 
@@ -37,7 +39,7 @@ describe("the one view — urgency first", () => {
     expect(f).toContain("Needs you")
     expect(f).toContain('“Should I overwrite the existing config')
     expect(f).toContain("1  Overwrite")
-    expect(f).toContain(":3000 holding 14G of memory")
+    expect(f).toContain(":3000 holding 14GB of memory")
     expect(f).toContain("review +214 −38 across 9 files")
     expect(f).toContain("Sessions")
     expect(f).toContain("Servers")

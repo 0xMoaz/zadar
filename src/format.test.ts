@@ -12,9 +12,9 @@ describe("fmtDuration", () => {
 
 describe("fmtMem / fmtTokens", () => {
   test("KB scaling", () => {
-    expect(fmtMem(14 * 1024 * 1024)).toBe("14G")
-    expect(fmtMem(9.8 * 1024 * 1024)).toBe("9.8G")
-    expect(fmtMem(512 * 1024)).toBe("512M")
+    expect(fmtMem(14 * 1024 * 1024)).toBe("14GB")
+    expect(fmtMem(9.8 * 1024 * 1024)).toBe("9.8GB")
+    expect(fmtMem(512 * 1024)).toBe("512MB")
   })
   test("token scaling", () => {
     expect(fmtTokens(192_000)).toBe("192k")

@@ -29,7 +29,9 @@ async function shot(label: string, width: number, height: number, keys: string[]
   }
   console.log(`\n──────── ${label} ────────`)
   console.log(setup.captureCharFrame())
-  setup.renderer.destroy()
+  await act(async () => {
+    setup.renderer.destroy()
+  })
 }
 
 await shot("THE VIEW — queue first (100×42)", 100, 42)

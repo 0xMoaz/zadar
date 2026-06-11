@@ -7,13 +7,13 @@ export function fmtDuration(sec: number): string {
   return m > 0 ? `${h}h${m}m` : `${h}h`
 }
 
-/** KB → "14G" · "9.8G" · "512M" — two significant figures, no noise decimals */
+/** KB → "14GB" · "9.8GB" · "512MB" — full byte units (M/G are taken by token counts) */
 export function fmtMem(kb: number): string {
   if (kb > 1048576) {
     const g = kb / 1048576
-    return g >= 10 ? `${Math.round(g)}G` : `${g.toFixed(1)}G`
+    return g >= 10 ? `${Math.round(g)}GB` : `${g.toFixed(1)}GB`
   }
-  return `${Math.round(kb / 1024)}M`
+  return `${Math.round(kb / 1024)}MB`
 }
 
 /** tokens → "192k" · "1.2M" · "30M" */
