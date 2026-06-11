@@ -60,3 +60,53 @@ export async function focusClaude(sessionId?: string): Promise<void> {
   }
   await $`open -a Claude`.nothrow().quiet()
 }
+
+/**
+ * The .app bundle that owns a pid — found by walking its ancestry. A CLI
+ * session's chain ends at its terminal (Ghostty, iTerm, Terminal, VS Code…);
+ * a desktop session's at Claude.app.
+ */
+async function hostAppOf(pid: number): Promise<{ path: string; name: string } | undefined> {
+  let p = pid
+  for (let i = 0; i < 25 && p > 1; i++) {
+    const out = await $`ps -o ppid=,comm= -p ${p}`.nothrow().quiet().text()
+    const m = out.trim().match(/^(\d+)\s+(.+)$/)
+    if (!m) return undefined
+    p = Number(m[1])
+    // only real installed apps — the CLI's own binary hides inside an inner
+    // claude.app bundle under Application Support, which is not a destination
+    const bundle = m[2].match(/^((?:\/System)?\/Applications\/.*?\.app)\//)
+    if (bundle) {
+      const path = bundle[1]
+      const name = path.split("/").pop()!.replace(/\.app$/, "")
+      return { path, name }
+    }
+  }
+  return undefined
+}
+
+/**
+ * Go to a session wherever it lives: Claude desktop sessions deep-link into
+ * the app; CLI sessions (claude or codex) bring their terminal forward.
+ * Returns the destination's name for the toast, or undefined if unlocatable.
+ */
+export async function focusSession(agent: {
+  pid: number
+  kind: "claude" | "codex"
+  id: string
+}): Promise<string | undefined> {
+  const host = await hostAppOf(agent.pid)
+  if (host?.name === "Claude") {
+    await focusClaude(agent.kind === "claude" ? agent.id : undefined)
+    return "Claude"
+  }
+  if (host) {
+    await $`open ${host.path}`.nothrow().quiet()
+    return host.name
+  }
+  if (agent.kind === "claude") {
+    await focusClaude(agent.id)
+    return "Claude"
+  }
+  return undefined
+}

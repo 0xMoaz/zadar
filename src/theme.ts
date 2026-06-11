@@ -11,6 +11,8 @@ export const color = {
   fg: RGBA.fromHex("#C8CDD4"),
   dim: RGBA.fromHex("#6B7280"),
   faint: RGBA.fromHex("#3B4048"),
+  /** keycap background — a whisper above the terminal bg, never palette-overridden */
+  pill: RGBA.fromHex("#262A30"),
   accent: RGBA.fromHex("#56B6C2"),
   attention: RGBA.fromHex("#E6B450"),
   danger: RGBA.fromHex("#E05252"),

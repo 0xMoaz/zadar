@@ -13,8 +13,7 @@ export function Pillar({
   expanded,
   selected,
   dense = false,
-  icon,
-  iconColor,
+  onHeaderMouseDown,
   children,
 }: {
   id: string
@@ -23,20 +22,17 @@ export function Pillar({
   expanded: boolean
   selected: boolean
   dense?: boolean
-  icon?: string
-  iconColor?: typeof color.faint
+  onHeaderMouseDown?: (e: { button: number }) => void
   children?: ReactNode
 }) {
   return (
     <box flexDirection="column">
-      <box id={id}>
+      <box id={id} onMouseDown={onHeaderMouseDown}>
         <SectionHeader
           label={label}
           summary={summary}
           expanded={expanded}
           selected={selected}
-          icon={icon}
-          iconColor={iconColor}
         />
       </box>
       {expanded && children ? (

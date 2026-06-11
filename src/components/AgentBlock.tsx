@@ -3,8 +3,9 @@ import type { Agent } from "../types"
 import { color, glyph, icon, projectHue, statusColor, statusGlyph, ctxColor, waitColor } from "../theme"
 import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 import { Stat } from "./Stat"
+import { Keycap } from "./Keycap"
 
-const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
+const MAX_CHIPS = 9
 const INDENT = "     " // aligns content under the row name (gutter + glyph + space)
 
 /**
@@ -135,10 +136,10 @@ export function AgentBlock({
       {waiting && agent.options && agent.options.length > 0 && (
         <text>
           <span fg={color.dim}>{INDENT}</span>
-          {agent.options.slice(0, CHIP_NUMS.length).map((o, i) => (
+          {agent.options.slice(0, MAX_CHIPS).map((o, i) => (
             <span key={o}>
-              <span fg={color.accent}>{CHIP_NUMS[i]} </span>
-              <span fg={color.dim}>{o}   </span>
+              <Keycap k={String(i + 1)} />
+              <span fg={color.dim}> {o}   </span>
             </span>
           ))}
         </text>
@@ -157,7 +158,7 @@ export function AgentBlock({
         <box flexDirection="column">
           {(agent.task ? wrapText(`“${agent.task}”`, textW - 6, 2) : []).map((l, i) => (
             <text key={`t${i}`}>
-              <span fg={color.faint}>
+              <span fg={color.fg}>
                 {INDENT}
                 {i === 0 ? `${icon.task} task  ` : "        "}
               </span>
@@ -166,7 +167,7 @@ export function AgentBlock({
           ))}
           {!urgent && agent.lastTool && (
             <text>
-              <span fg={color.faint}>
+              <span fg={color.fg}>
                 {INDENT}
                 {icon.pulse} {agent.status === "working" ? "now   " : "last  "}
               </span>
@@ -177,18 +178,18 @@ export function AgentBlock({
           )}
           {agent.lastSaid && (
             <text>
-              <span fg={color.faint}>{`${INDENT}${icon.comment} said  `}</span>
+              <span fg={color.fg}>{`${INDENT}${icon.comment} said  `}</span>
               <span fg={color.dim}>“{clip(agent.lastSaid, textW - 10)}”</span>
             </text>
           )}
           {agent.diff && agent.diff.files > 0 && (
             <text>
-              <span fg={color.faint}>{`${INDENT}${icon.diff} built `}</span>
+              <span fg={color.fg}>{`${INDENT}${icon.diff} built `}</span>
               <span fg={color.positive}>+{agent.diff.plus}</span>
               <span fg={color.danger}> −{agent.diff.minus}</span>
               <span fg={color.dim}> across </span>
               <Stat s={`${agent.diff.files} ${agent.diff.files === 1 ? "file" : "files"}`} />
-              <span fg={color.dim}>, uncommitted</span>
+              <span fg={color.fg}>, uncommitted</span>
             </text>
           )}
           {/* the story above, the vitals below */}
@@ -197,10 +198,11 @@ export function AgentBlock({
             {"─".repeat(Math.max(12, Math.min(textW, 48)))}
           </text>
           <text>
-            <span fg={color.dim}>
+            <span fg={color.fg}>
               {INDENT}
-              {agent.model} ·{" "}
+              {agent.model}
             </span>
+            <span fg={color.dim}>{" · "}</span>
             <Stat s={`${fmtTokens(agent.tokens)} tok`} />
             <span fg={color.dim}> · {glyph.clock} </span>
             <Stat s={fmtDuration(agent.uptimeSec)} />

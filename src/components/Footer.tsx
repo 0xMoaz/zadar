@@ -1,38 +1,54 @@
 import { color } from "../theme"
 import { clip } from "../format"
+import { Keycap } from "./Keycap"
 
 export type Hint = [key: string, label: string]
 
-/** a-z → ⓐ-ⓩ keycaps — the same circled family as the ①② option chips */
-const keycap = (k: string): string =>
-  k.length === 1 && k >= "a" && k <= "z" ? String.fromCharCode(0x24d0 + k.charCodeAt(0) - 97) : k
+const wOf = ([k, label]: Hint) => k.length + 2 + 1 + label.length + 2
+
+function Chips({ hints }: { hints: Hint[] }) {
+  return (
+    <text>
+      {hints.map(([k, label]) => (
+        <span key={k + label}>
+          <Keycap k={k} />
+          <span fg={color.dim}> {label}  </span>
+        </span>
+      ))}
+    </text>
+  )
+}
 
 /**
- * Context-sensitive hints: keycap + word. Hints that don't fit are dropped,
- * never wrapped — the footer is one line, always.
+ * Two-sided footer: what you can do to the selection on the LEFT, the system
+ * keys (view / help — or back, inside an overlay) tucked on the RIGHT.
+ * A toast borrows the left side while it lives. One line, never wraps.
  */
-export function Footer({ hints, toast = "", width }: { hints: Hint[]; toast?: string; width: number }) {
-  const wOf = ([k, label]: Hint) => keycap(k).length + 1 + label.length + 2
-  const budget = width - (toast ? Math.min(toast.length, 24) + 2 : 0)
+export function Footer({
+  left,
+  right,
+  toast = "",
+  width,
+}: {
+  left: Hint[]
+  right: Hint[]
+  toast?: string
+  width: number
+}) {
+  const rightW = right.reduce((n, h) => n + wOf(h), 0)
+  const budget = width - rightW - 2
   const shown: Hint[] = []
   let used = 0
-  for (const h of hints) {
-    if (used + wOf(h) > budget) break
-    shown.push(h)
-    used += wOf(h)
-  }
-  const toastShown = toast ? clip(toast, Math.max(8, width - used - 2)) : ""
+  if (!toast)
+    for (const h of left) {
+      if (used + wOf(h) > budget) break
+      shown.push(h)
+      used += wOf(h)
+    }
   return (
     <box flexDirection="row" justifyContent="space-between" height={1}>
-      <text>
-        {shown.map(([k, label]) => (
-          <span key={k + label}>
-            <span fg={color.fg}>{keycap(k)}</span>
-            <span fg={color.dim}> {label}  </span>
-          </span>
-        ))}
-      </text>
-      {toastShown ? <text fg={color.positive}>{toastShown}</text> : <text> </text>}
+      {toast ? <text fg={color.positive}>{clip(toast, Math.max(8, budget))}</text> : <Chips hints={shown} />}
+      <Chips hints={right} />
     </box>
   )
 }

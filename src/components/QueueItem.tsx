@@ -3,9 +3,10 @@ import type { AttentionItem } from "../fleetmap"
 import { color, glyph, projectHue, spinnerFrame, waitColor } from "../theme"
 import { clip, fmtDuration, wrapText } from "../format"
 import { Stat } from "./Stat"
+import { Keycap } from "./Keycap"
 import type { RGBA } from "@opentui/core"
 
-const CHIP_NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"]
+const MAX_CHIPS = 9
 const INDENT = "     "
 
 function kindGlyph(item: AttentionItem, tick: number): { g: string; c: RGBA } {
@@ -48,23 +49,6 @@ function AgeLabel({ item, c }: { item: AttentionItem; c: RGBA }) {
         </span>
       )}
     </text>
-  )
-}
-
-/** The strip variant: one fixed line, no chips — urgency as presence. */
-export function QueueStripLine({ item, width, tick = 0 }: { item: AttentionItem; width: number; tick?: number }) {
-  const { g, c } = kindGlyph(item, tick)
-  const title = wrapText(item.title, Math.max(16, width - item.project.length - 24), 1)[0] ?? ""
-  return (
-    <box flexDirection="row" justifyContent="space-between">
-      <text>
-        <span fg={c}>{` ${g} `}</span>
-        <span fg={color.fg}>{item.project}</span>
-        <span fg={projectHue(item.project.split("/")[0])}>{" · "}</span>
-        <span fg={item.kind === "question" ? color.fg : color.dim}>{title}</span>
-      </text>
-      <AgeLabel item={item} c={c} />
-    </box>
   )
 }
 
@@ -151,10 +135,10 @@ export function QueueItem({
       {item.kind === "question" && agent.options && agent.options.length > 0 && (
         <text>
           <span fg={color.dim}>{INDENT}</span>
-          {agent.options.slice(0, CHIP_NUMS.length).map((o, i) => (
+          {agent.options.slice(0, MAX_CHIPS).map((o, i) => (
             <span key={o}>
-              <span fg={color.accent}>{CHIP_NUMS[i]} </span>
-              <span fg={color.dim}>{o}   </span>
+              <Keycap k={String(i + 1)} />
+              <span fg={color.dim}> {o}   </span>
             </span>
           ))}
         </text>

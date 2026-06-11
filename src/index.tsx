@@ -69,7 +69,7 @@ if (apiIdx >= 0) {
 const renderer = await createCliRenderer({
   exitOnCtrlC: true,
   targetFps: 30,
-  useMouse: false, // keyboard-driven; lets the terminal keep native mouse/scroll/copy
+  useMouse: true, // click navigates: queue items jump to the session, servers open in the browser
 })
 
 // Match the terminal's own palette (Ghostty theme) instead of hardcoded colors.

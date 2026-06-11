@@ -67,17 +67,17 @@ chmod +x ~/.local/bin/zadar
 > `fleet` binary is on your PATH — on this machine that's the *old bash
 > dashboard*, which prints one frame and exits. Use `zadar` (above) instead.
 
-**The default view is home: sessions first.** **SESSIONS** opens expanded
-(status-sorted, urgent rows auto-expand their literal question), with
-**SERVERS** and **PROJECTS** (repos: cost, server, worktrees + guarded
-pruning) folded beneath. When something needs you, a thin **strip** appears
-above the sections with the most urgent items — urgency is presence: a calm
-fleet has no strip at all. `v` opens the full ranked queue + project map.
+**One view, urgency first.** **Needs you** leads — every actionable item
+ranked (questions, pending tools, errors, reviews, sick servers) — with
+**Sessions** open beneath (status-sorted, urgent rows auto-expand their
+literal question), and **Servers** and **Projects** (repos: cost, server,
+worktrees + guarded pruning) folded after. `⏎` or a click on a queue item
+takes you to the session's app; on a server it opens the browser.
 
-**Keys:** `↑↓`/`jk` move · `⏎` inspect / open / fold · `v` switch view ·
-`←→`/`hl` fold · `o` open (Claude app / browser) · `c` copy (resume / url) ·
-`x` kill · `p` prune a clean worktree · `t` activity log · `n` notifications ·
-`i` idle · `r` refresh · `?` help · `q` quit.
+**Keys:** `↑↓`/`jk` move · `⏎`/click go / fold / details · `␣` inspect ·
+`←→`/`hl` fold · `o` open (session's app / browser) · `c` copy (resume /
+url) · `x` kill · `p` prune a clean worktree · `t` activity log · `n`
+notifications · `i` idle · `r` refresh · `?` help · `q` quit.
 
 **Local data API:** `zadar --api [port]` additionally serves the same truth
 as JSON on `127.0.0.1:7433` — `GET /snapshot` (the full fleet state) and

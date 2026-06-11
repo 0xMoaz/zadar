@@ -30,32 +30,32 @@ afterEach(() => {
   current = null
 })
 
-describe("home view — sessions first", () => {
-  test("the strip shows the most urgent items; sessions open beneath", async () => {
-    const s = await mount()
+describe("the one view — urgency first", () => {
+  test("the queue leads; the world follows", async () => {
+    const s = await mount(100, 60)
     const f = s.captureCharFrame()
-    expect(f).toContain("SESSIONS")
-    expect(f).toContain("+4 more — v opens the queue") // 6 queue items, 2 in the strip
-    expect(f).toContain('“Should I overwrite the existing config') // strip + auto-expanded row
-    expect(f).toContain("SERVERS")
-    expect(f).toContain("PROJECTS")
+    expect(f).toContain("Needs you")
+    expect(f).toContain('“Should I overwrite the existing config')
+    expect(f).toContain("1  Overwrite")
+    expect(f).toContain(":3000 holding 14G of memory")
+    expect(f).toContain("review +214 −38 across 9 files")
+    expect(f).toContain("Sessions")
+    expect(f).toContain("Servers")
+    expect(f).toContain("Projects")
     expect(f).not.toContain("playground") // idle stays hidden in sessions until i
   })
 
-  test("urgent rows auto-expand; Enter discloses the story; i reveals idle", async () => {
-    const s = await mount()
-    await press(s, "j", "RETURN")
+  test("space on a queue item inspects its full entity in place", async () => {
+    const s = await mount(110, 44)
+    await press(s, "j", " ")
     let f = s.captureCharFrame()
     expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-    expect(f).toContain("task") // labeled story rows, not a tool log
-    expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
-    await press(s, "RETURN", "i")
+    await press(s, " ")
     f = s.captureCharFrame()
     expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-    expect(f).toContain("playground")
   })
 
-  test("x asks before killing; n cancels", async () => {
+  test("x on a queue item targets the underlying agent; n cancels", async () => {
     const s = await mount()
     await press(s, "j", "x")
     let f = s.captureCharFrame()
@@ -66,10 +66,24 @@ describe("home view — sessions first", () => {
     expect(f).not.toContain("y / n")
   })
 
-  test("PROJECTS drills into worktrees; p guards dirty, confirms clean", async () => {
+  test("Enter discloses a session's story; i reveals idle", async () => {
+    const s = await mount()
+    // fold the queue, step to Sessions, then the first agent
+    await press(s, "RETURN", "j", "j", "RETURN")
+    let f = s.captureCharFrame()
+    expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
+    expect(f).toContain("task") // labeled story rows, not a tool log
+    expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
+    await press(s, "RETURN", "i")
+    f = s.captureCharFrame()
+    expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")
+    expect(f).toContain("playground")
+  })
+
+  test("Projects drills into worktrees; p guards dirty, confirms clean", async () => {
     const s = await mount(100, 50)
-    // fold sessions, walk to PROJECTS, unfold, walk to omnipair-webapp (7th), open
-    await press(s, "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN")
+    // fold queue + sessions, walk to Projects, unfold, walk to omnipair-webapp (7th), open
+    await press(s, "RETURN", "j", "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN")
     let f = s.captureCharFrame()
     expect(f).toContain("feat-pairing")
     expect(f).toContain("feat/pairing")
@@ -83,55 +97,13 @@ describe("home view — sessions first", () => {
     expect(f).toContain("prune omnipair-webapp/agent-7 (clean, 19d)?")
     await press(s, "n") // cancel — never actually prune in tests
   })
-})
 
-describe("map view — the attention queue (behind v)", () => {
-  test("queue ranks every actionable item; map lists projects alphabetically", async () => {
-    const s = await mount(100, 60) // tall enough that no project card culls out of view
-    await press(s, "v")
+  test("G jumps to Projects; opening it shows every repo, idle included", async () => {
+    const s = await mount(100, 60)
+    await press(s, "RETURN", "G", "RETURN")
     const f = s.captureCharFrame()
-    expect(f).toContain("NEEDS YOU")
-    expect(f).toContain('“Should I overwrite the existing config')
-    expect(f).toContain("① Overwrite")
-    expect(f).toContain(":3000 holding 14G of memory")
-    expect(f).toContain("review +214 −38 across 9 files")
-    expect(f).toContain("PROJECTS")
     expect(f).toContain("api-gateway")
-    expect(f).toContain("playground") // the map is the whole world, idle included
-  })
-
-  test("Enter on a queue item inspects its full entity in place", async () => {
-    const s = await mount(110, 44)
-    await press(s, "v", "j", "RETURN")
-    let f = s.captureCharFrame()
-    expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-    await press(s, "RETURN")
-    f = s.captureCharFrame()
-    expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-  })
-
-  test("x on a queue item targets the underlying agent", async () => {
-    const s = await mount()
-    await press(s, "v", "j", "x")
-    expect(s.captureCharFrame()).toContain("kill webapp · pid 74867?")
-    await press(s, "n")
-  })
-
-  test("Enter on a project card opens its agents, server, and trees", async () => {
-    const s = await mount(110, 44)
-    // map → fold the queue, walk to PROJECTS, open the first project (api-gateway)
-    await press(s, "v", "RETURN", "j", "j", "RETURN")
-    const f = s.captureCharFrame()
-    expect(f).toContain("feat/rate-limit") // its agent row (branch shows on agent rows only)
-    expect(f).toContain("localhost:8787") // its (stale) server
-  })
-
-  test("v round-trips home ↔ map", async () => {
-    const s = await mount()
-    await press(s, "v")
-    expect(s.captureCharFrame()).toContain("NEEDS YOU")
-    await press(s, "v")
-    expect(s.captureCharFrame()).toContain("SESSIONS")
+    expect(f).toContain("playground")
   })
 })
 

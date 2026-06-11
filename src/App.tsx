@@ -7,22 +7,22 @@ import type { Agent, DevServer, RepoWorktrees, Snapshot, WorktreeItem } from "./
 import {
   copyResume,
   copyText,
-  focusClaude,
+  focusSession,
   killProcess,
   notify,
   openServer,
   pruneWorktree,
   resumeCommand,
 } from "./actions"
-import { color, glyph, icon, spinnerFrame, statusColor, statusGlyph } from "./theme"
+import { color, glyph, icon, statusColor, statusGlyph } from "./theme"
 import { clip, clock, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
 import { checkForUpdate, VERSION } from "./update"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
-import { WorktreeCard, WorktreeItemRow } from "./components/WorktreeCard"
-import { QueueItem, QueueStripLine } from "./components/QueueItem"
+import { WorktreeItemRow } from "./components/WorktreeCard"
+import { QueueItem } from "./components/QueueItem"
 import { ProjectCard } from "./components/ProjectCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
@@ -37,13 +37,12 @@ import { TextAttributes } from "@opentui/core"
 const STALE_SEC = 20 * 60
 const isActive = (a: Agent) => a.status !== "idle" || a.idleSec < STALE_SEC
 
-type View = "home" | "map"
 type Section = "queue" | "projects" | "sessions" | "servers"
 const LABEL: Record<Section, string> = {
-  queue: "NEEDS YOU",
-  projects: "PROJECTS",
-  sessions: "SESSIONS",
-  servers: "SERVERS",
+  queue: "Needs you",
+  projects: "Projects",
+  sessions: "Sessions",
+  servers: "Servers",
 }
 
 type Row =
@@ -52,7 +51,6 @@ type Row =
   | { sid: string; kind: "project"; section: Section; group: ProjectGroup }
   | { sid: string; kind: "agent"; section: Section; agent: Agent }
   | { sid: string; kind: "server"; section: Section; server: DevServer }
-  | { sid: string; kind: "worktree"; section: Section; wt: RepoWorktrees }
   | { sid: string; kind: "wtitem"; section: Section; repo: RepoWorktrees; item: WorktreeItem }
 
 export function App({
@@ -67,8 +65,7 @@ export function App({
   const { width, height } = useTerminalDimensions()
   const renderer = useRenderer()
   const [snap, setSnap] = useState<Snapshot>(snapshot ?? emptySnapshot)
-  const [view, setView] = useState<View>("home")
-  const [selSid, setSelSid] = useState("h-sessions")
+  const [selSid, setSelSid] = useState("h-queue")
   const [open, setOpen] = useState<Record<Section, boolean>>({
     queue: true,
     projects: false,
@@ -118,47 +115,27 @@ export function App({
   const dense = height < 24
   const short = height < 14
 
-  // flattened, navigable rows for the current view
+  // flattened, navigable rows — one view: urgency first, then the world
   const rows: Row[] = []
-  if (view === "map") {
-    rows.push({ sid: "h-queue", kind: "header", section: "queue" })
-    if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
-    rows.push({ sid: "h-projects", kind: "header", section: "projects" })
-    if (open.projects)
-      groups.forEach((g) => {
-        rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
-        if (openRows.has(`pj-${g.key}`)) {
-          g.agents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "projects", agent: a }))
-          g.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "projects", server: s }))
-          if (g.worktrees) {
-            const w = g.worktrees
-            rows.push({ sid: `w-${w.repo}`, kind: "worktree", section: "projects", wt: w })
-            if (openRows.has(`w-${w.repo}`))
-              w.items.forEach((it) =>
-                rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
-              )
-          }
-        }
-      })
-  } else {
-    rows.push({ sid: "h-sessions", kind: "header", section: "sessions" })
-    if (open.sessions)
-      visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
-    rows.push({ sid: "h-servers", kind: "header", section: "servers" })
-    if (open.servers)
-      snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
-    rows.push({ sid: "h-projects", kind: "header", section: "projects" })
-    if (open.projects)
-      groups.forEach((g) => {
-        rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
-        if (openRows.has(`pj-${g.key}`) && g.worktrees) {
-          const w = g.worktrees
-          w.items.forEach((it) =>
-            rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
-          )
-        }
-      })
-  }
+  rows.push({ sid: "h-queue", kind: "header", section: "queue" })
+  if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
+  rows.push({ sid: "h-sessions", kind: "header", section: "sessions" })
+  if (open.sessions)
+    visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
+  rows.push({ sid: "h-servers", kind: "header", section: "servers" })
+  if (open.servers)
+    snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
+  rows.push({ sid: "h-projects", kind: "header", section: "projects" })
+  if (open.projects)
+    groups.forEach((g) => {
+      rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
+      if (openRows.has(`pj-${g.key}`) && g.worktrees) {
+        const w = g.worktrees
+        w.items.forEach((it) =>
+          rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
+        )
+      }
+    })
 
   // selection follows identity, not position — re-sorts never move it under you
   const found = rows.findIndex((r) => r.sid === selSid)
@@ -227,6 +204,35 @@ export function App({
   // the agent / server a row's actions apply to (queue items carry their target)
   const targetAgent = cur?.kind === "agent" ? cur.agent : cur?.kind === "queue" ? cur.item.agent : undefined
   const targetServer = cur?.kind === "server" ? cur.server : cur?.kind === "queue" ? cur.item.server : undefined
+
+  // go to the thing itself: sessions focus their host app, servers open in the browser
+  const goToAgent = (a: Agent) => {
+    flash("locating session…")
+    void focusSession(a).then((dest) => flash(dest ? `opening ${dest}…` : "couldn't find the session's app"))
+  }
+  const goToServer = (s: DevServer) => {
+    void openServer(s.port)
+    flash(`opening localhost:${s.port}`)
+  }
+  const goToItem = (it: AttentionItem) => {
+    if (it.agent) goToAgent(it.agent)
+    else if (it.server) goToServer(it.server)
+  }
+
+  // one activation vocabulary — ⏎ and click do the same thing everywhere:
+  // headers fold, queue/server rows GO there, everything else discloses
+  const activate = (r: Row) => {
+    if (r.kind === "header") toggleSection(r.section)
+    else if (r.kind === "queue") goToItem(r.item)
+    else if (r.kind === "server") goToServer(r.server)
+    else if (r.kind !== "wtitem") setRowOpen(r.sid, !openRows.has(r.sid))
+  }
+  const clickRow = (sid: string) => (e: { button: number }) => {
+    if (e.button !== 0) return
+    setSelSid(sid)
+    const r = rows.find((row) => row.sid === sid)
+    if (r) activate(r)
+  }
 
   // ambient update check — cached daily, silent on failure, never blocks
   useEffect(() => {
@@ -302,13 +308,6 @@ export function App({
     }
     if (k === "?") return setHelp(true)
     if (k === "t") return setLog(true)
-    if (k === "v") {
-      const next: View = view === "map" ? "home" : "map"
-      setView(next)
-      if (next === "map") setOpen((o) => ({ ...o, queue: true, projects: true }))
-      setSelSid(next === "map" ? "h-queue" : "h-sessions")
-      return
-    }
 
     if (k === "j" || k === "down") move(1)
     else if (k === "k" || k === "up") move(-1)
@@ -332,18 +331,15 @@ export function App({
         if (idx >= 0) setSelSid(rows[idx].sid)
       }
     } else if (k === "i") setShowIdle((v) => !v)
-    else if (k === "return" || k === "space") {
+    else if (k === "return") {
+      if (cur) activate(cur)
+    } else if (k === "space") {
       if (!cur) return
       if (cur.kind === "header") toggleSection(cur.section)
       else if (cur.kind !== "wtitem") setRowOpen(cur.sid, !openRows.has(cur.sid))
     } else if (k === "o") {
-      if (targetAgent) {
-        void focusClaude(targetAgent.kind === "claude" ? targetAgent.id : undefined)
-        flash("opening Claude…")
-      } else if (targetServer) {
-        void openServer(targetServer.port)
-        flash(`opening localhost:${targetServer.port}`)
-      }
+      if (targetAgent) goToAgent(targetAgent)
+      else if (targetServer) goToServer(targetServer)
     } else if (k === "p") {
       if (cur?.kind === "wtitem") {
         const { repo, item } = cur
@@ -409,66 +405,49 @@ export function App({
         ? "fold"
         : "unfold"
       : cur.kind === "queue"
-        ? openRows.has(cur.sid)
-          ? "collapse"
-          : "inspect"
-        : cur.kind === "project"
-          ? openRows.has(cur.sid)
-            ? "collapse"
-            : "open"
-          : cur.kind === "worktree"
+        ? "go"
+        : cur.kind === "server"
+          ? "open"
+          : cur.kind === "project"
             ? openRows.has(cur.sid)
               ? "collapse"
-              : "trees"
+              : "open"
             : cur.kind === "wtitem"
               ? "select"
               : openRows.has(cur.sid)
                 ? "collapse"
                 : "details"
 
-  const hints: Hint[] = short
-    ? [["?", "help"]]
-    : (() => {
-        const h: Hint[] = [["↑↓", "move"]]
-        if (cur?.kind !== "wtitem") h.push(["⏎", primary])
-        if (targetAgent || targetServer) h.push(["o", "open"], ["c", "copy"], ["x", "kill"])
-        if (cur?.kind === "wtitem") h.push(["p", "prune"])
-        if (view === "home" && (idleCount > 0 || showIdle))
-          h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
-        h.push(["v", view === "map" ? "home" : "queue"])
-        if (events.length > 0) h.push(["t", "log"])
-        h.push(["?", "help"], ["q", "quit"])
-        return h
-      })()
+  // the footer speaks to the selection on the left; system keys tuck right.
+  // inside an overlay there is exactly one move: back.
+  const inOverlay = help || log
+  const ctxHints: Hint[] = (() => {
+    if (short || inOverlay) return []
+    const h: Hint[] = []
+    if (cur && cur.kind !== "wtitem") h.push(["⏎", primary])
+    if (cur?.kind === "queue" || cur?.kind === "server")
+      h.push(["␣", openRows.has(cur.sid) ? "collapse" : "inspect"])
+    if (cur?.kind === "agent") h.push(["o", "open"])
+    if (targetAgent || targetServer) h.push(["c", "copy"], ["x", "kill"])
+    if (cur?.kind === "wtitem") h.push(["p", "prune"])
+    if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
+    return h
+  })()
+  const sysHints: Hint[] = inOverlay ? [["esc", "back"]] : [["?", "help"]]
 
   // the last few status flips — what you missed while looking away
   const tickerEvents = events.slice(width > 110 ? -3 : -2)
 
   const renderAgent = (a: Agent) => (
-    <box key={`a-${a.id}`} id={`a-${a.id}`}>
+    <box key={`a-${a.id}`} id={`a-${a.id}`} onMouseDown={clickRow(`a-${a.id}`)}>
       <AgentBlock agent={a} selected={curSid === `a-${a.id}`} expanded={openRows.has(`a-${a.id}`)} width={cardWidth} />
     </box>
   )
   const renderServer = (s: DevServer) => (
-    <box key={`s-${s.pid}`} id={`s-${s.pid}`}>
+    <box key={`s-${s.pid}`} id={`s-${s.pid}`} onMouseDown={clickRow(`s-${s.pid}`)}>
       <ServerCard server={s} selected={curSid === `s-${s.pid}`} expanded={openRows.has(`s-${s.pid}`)} width={cardWidth} />
     </box>
   )
-  const renderWorktree = (w: RepoWorktrees) => (
-    <box key={`w-${w.repo}`} flexDirection="column">
-      <box id={`w-${w.repo}`}>
-        <WorktreeCard wt={w} selected={curSid === `w-${w.repo}`} expanded={openRows.has(`w-${w.repo}`)} />
-      </box>
-      {openRows.has(`w-${w.repo}`)
-        ? w.items.map((it) => (
-            <box key={`wi-${w.repo}-${it.name}`} id={`wi-${w.repo}-${it.name}`}>
-              <WorktreeItemRow item={it} repo={w.repo} selected={curSid === `wi-${w.repo}-${it.name}`} width={cardWidth} />
-            </box>
-          ))
-        : null}
-    </box>
-  )
-
   return (
     <box flexDirection="column" width={width} height={height} paddingLeft={2} paddingRight={2}>
       {/* header — the beacon: wordmark tints to the worst case, counts tell the story */}
@@ -495,21 +474,6 @@ export function App({
       </box>
       <Rule />
 
-      {/* the strip — urgency as presence: only exists while something needs you */}
-      {view === "home" && !help && !log && queue.length > 0 && (
-        <box flexShrink={0} flexDirection="column">
-          <box flexDirection="column" paddingTop={dense ? 0 : 1} paddingBottom={dense ? 0 : 1}>
-            {queue.slice(0, dense ? 1 : 2).map((it) => (
-              <QueueStripLine key={it.id} item={it} width={cardWidth} tick={tick} />
-            ))}
-            {queue.length > (dense ? 1 : 2) && (
-              <text fg={color.dim}>{`   +${queue.length - (dense ? 1 : 2)} more — v opens the queue`}</text>
-            )}
-          </box>
-          <Rule />
-        </box>
-      )}
-
       {/* middle — one scrolling accordion of collapsible sections */}
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
         {help ? (
@@ -518,17 +482,15 @@ export function App({
           <EventLog events={events} maxRows={height - 8} />
         ) : (
           <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: dense ? 0 : 1 }}>
-            {view === "map" ? (
-              <>
+            <>
                 <Pillar
                   id="h-queue"
+                  onHeaderMouseDown={clickRow("h-queue")}
                   label={LABEL.queue}
                   summary={summaryFor("queue")}
                   expanded={open.queue}
                   selected={curSid === "h-queue"}
                   dense={dense}
-                  icon={queue.length ? spinnerFrame(tick) : undefined}
-                  iconColor={color.attention}
                 >
                   {queue.length === 0 ? (
                     <text>
@@ -543,7 +505,7 @@ export function App({
                   ) : (
                     queue.map((it) => (
                       <box key={`q-${it.id}`} flexDirection="column">
-                        <box id={`q-${it.id}`}>
+                        <box id={`q-${it.id}`} onMouseDown={clickRow(`q-${it.id}`)}>
                           <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} tick={tick} />
                         </box>
                         {openRows.has(`q-${it.id}`) && it.agent ? (
@@ -561,76 +523,42 @@ export function App({
                 </Pillar>
 
                 <Pillar
-                  id="h-projects"
-                  label={LABEL.projects}
-                  summary={summaryFor("projects")}
-                  expanded={open.projects}
-                  selected={curSid === "h-projects"}
-                  dense={dense}
-                  icon={icon.repo}
-                >
-                  {groups.length
-                    ? groups.map((g) => (
-                        <box key={`pj-${g.key}`} flexDirection="column">
-                          <box id={`pj-${g.key}`}>
-                            <ProjectCard
-                              group={g}
-                              selected={curSid === `pj-${g.key}`}
-                              expanded={openRows.has(`pj-${g.key}`)}
-                              width={cardWidth}
-                            />
-                          </box>
-                          {openRows.has(`pj-${g.key}`) ? (
-                            <box paddingTop={dense ? 0 : 1} paddingLeft={2} flexDirection="column" gap={dense ? 0 : 1}>
-                              {g.agents.map(renderAgent)}
-                              {g.servers.map(renderServer)}
-                              {g.worktrees ? renderWorktree(g.worktrees) : null}
-                            </box>
-                          ) : null}
-                        </box>
-                      ))
-                    : null}
-                </Pillar>
-              </>
-            ) : (
-              <>
-                <Pillar
                   id="h-sessions"
+                  onHeaderMouseDown={clickRow("h-sessions")}
                   label={LABEL.sessions}
                   summary={summaryFor("sessions")}
                   expanded={open.sessions}
                   selected={curSid === "h-sessions"}
                   dense={dense}
-                  icon={icon.sessions}
                 >
                   {visibleAgents.length ? visibleAgents.map(renderAgent) : null}
                 </Pillar>
 
                 <Pillar
                   id="h-servers"
+                  onHeaderMouseDown={clickRow("h-servers")}
                   label={LABEL.servers}
                   summary={summaryFor("servers")}
                   expanded={open.servers}
                   selected={curSid === "h-servers"}
                   dense={dense}
-                  icon={icon.server}
                 >
                   {snap.servers.length ? snap.servers.map(renderServer) : null}
                 </Pillar>
 
                 <Pillar
                   id="h-projects"
+                  onHeaderMouseDown={clickRow("h-projects")}
                   label={LABEL.projects}
                   summary={summaryFor("projects")}
                   expanded={open.projects}
                   selected={curSid === "h-projects"}
                   dense={dense}
-                  icon={icon.repo}
                 >
                   {groups.length
                     ? groups.map((g) => (
                         <box key={`pj-${g.key}`} flexDirection="column">
-                          <box id={`pj-${g.key}`}>
+                          <box id={`pj-${g.key}`} onMouseDown={clickRow(`pj-${g.key}`)}>
                             <ProjectCard
                               group={g}
                               selected={curSid === `pj-${g.key}`}
@@ -640,7 +568,11 @@ export function App({
                           </box>
                           {openRows.has(`pj-${g.key}`) && g.worktrees
                             ? g.worktrees.items.map((it) => (
-                                <box key={`wi-${g.key}-${it.name}`} id={`wi-${g.worktrees!.repo}-${it.name}`}>
+                                <box
+                                  key={`wi-${g.key}-${it.name}`}
+                                  id={`wi-${g.worktrees!.repo}-${it.name}`}
+                                  onMouseDown={clickRow(`wi-${g.worktrees!.repo}-${it.name}`)}
+                                >
                                   <WorktreeItemRow
                                     item={it}
                                     repo={g.worktrees!.repo}
@@ -654,8 +586,7 @@ export function App({
                       ))
                     : null}
                 </Pillar>
-              </>
-            )}
+            </>
           </scrollbox>
         )}
       </box>
@@ -686,7 +617,7 @@ export function App({
               <span fg={color.dim}>{"   "}y / n</span>
             </text>
           ) : (
-            <Footer hints={hints} toast={toast} width={width - 4} />
+            <Footer left={ctxHints} right={sysHints} toast={toast} width={width - 4} />
           )}
         </box>
       </box>
