@@ -37,14 +37,29 @@ function hhmm(ms: number): string {
 
 export async function collect(): Promise<Snapshot> {
   const now = Date.now()
+  // servers and worktrees don't depend on agent discovery — probe them alongside
+  const serversP = collectServers()
+  const worktreesP = collectWorktrees()
   const procs = await discoverAgents()
 
+  // per-agent subprocess lookups (git branch/diff) run concurrently; the
+  // transcript parse is sync and cheap on cache hits. Signal-state mutation
+  // (burns/ghosts) stays in the sequential pass below, in stable proc order.
+  const parts = await Promise.all(
+    procs.map(async (p) => ({
+      p,
+      branch: await branchOf(p.cwd),
+      diff: await diffOf(p.cwd, now),
+      claude: p.kind === "claude" ? parseClaude(p.cwd, p.model, p.resumeId, now) : null,
+      codex: p.kind === "codex" ? parseCodex(p.cwd, p.model, now) : null,
+    })),
+  )
+
   const agents: Agent[] = []
-  for (const p of procs) {
-    const branch = await branchOf(p.cwd)
+  for (const { p, branch, diff, claude, codex } of parts) {
     const { project, wt } = identityOf(p.cwd)
     if (p.kind === "claude") {
-      const s = parseClaude(p.cwd, p.model, p.resumeId, now)
+      const s = claude
       const id = s?.sessionId ?? String(p.pid)
       const costUsd = s?.costUsd ?? 0
       const contextPct = s?.contextPct ?? 0
@@ -77,7 +92,7 @@ export async function collect(): Promise<Snapshot> {
         ctxGhostPct: ghostVisible(g, now),
         costUsd,
         burnPerHour: burnRate(samples),
-        diff: await diffOf(p.cwd, now),
+        diff,
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
@@ -85,7 +100,7 @@ export async function collect(): Promise<Snapshot> {
       })
     } else {
       // codex — parsed from ~/.codex/sessions (window + totals live in-file)
-      const s = parseCodex(p.cwd, p.model, now)
+      const s = codex
       const id = s?.sessionId ?? String(p.pid)
       const costUsd = s?.costUsd ?? 0
       const contextPct = s?.contextPct ?? 0
@@ -103,7 +118,7 @@ export async function collect(): Promise<Snapshot> {
         wt,
         cwd: p.cwd,
         branch,
-        model: prettyModel(p.model) || s?.model || "codex",
+        model: prettyModel(s?.model ?? p.model),
         status: s?.status ?? "unknown",
         procs: 1,
         task: s?.task,
@@ -115,7 +130,7 @@ export async function collect(): Promise<Snapshot> {
         costUsd,
         burnPerHour: burnRate(samples),
         planPct: s?.planPct,
-        diff: await diffOf(p.cwd, now),
+        diff,
         tokens: s?.tokens ?? 0,
         uptimeSec: p.etimeSec,
         idleSec: s?.idleSec ?? 0,
@@ -151,7 +166,7 @@ export async function collect(): Promise<Snapshot> {
     return b.uptimeSec - a.uptimeSec
   })
 
-  const [servers, worktrees] = await Promise.all([collectServers(), collectWorktrees()])
+  const [servers, worktrees] = await Promise.all([serversP, worktreesP])
 
   return { time: hhmm(now), agents: unique, servers, worktrees }
 }

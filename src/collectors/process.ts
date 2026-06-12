@@ -54,7 +54,7 @@ export async function branchOf(cwd: string, nowMs = Date.now()): Promise<string>
 
 export async function discoverAgents(): Promise<RawProc[]> {
   const out = await $`ps -axo pid=,etime=,rss=,command=`.nothrow().quiet().text()
-  const procs: RawProc[] = []
+  const found: Omit<RawProc, "cwd">[] = []
   for (const line of out.split("\n")) {
     const m = line.match(/^\s*(\d+)\s+(\S+)\s+(\d+)\s+(.*)$/)
     if (!m) continue
@@ -76,8 +76,11 @@ export async function discoverAgents(): Promise<RawProc[]> {
     const model = cmd.match(/--model[= ]+(\S+)/)?.[1] ?? ""
     const resumeId = cmd.match(/--resume[= ]+([0-9a-f-]{8,})/)?.[1]
     const pid = parseInt(pidS, 10)
-    const cwd = await cwdOf(pid)
-    procs.push({ pid, kind, etimeSec: etimeToSec(etime), rssKB: parseInt(rssS, 10), model, cwd, resumeId })
+    found.push({ pid, kind, etimeSec: etimeToSec(etime), rssKB: parseInt(rssS, 10), model, resumeId })
   }
-  return procs
+  // cwd lookups spawn lsof on cache misses — resolve them concurrently
+  const cwds = await Promise.all(found.map((f) => cwdOf(f.pid)))
+  // the Codex desktop app keeps one global `codex app-server` daemon rooted at "/" —
+  // not a session (its per-workspace engines carry real cwds), so drop it
+  return found.map((f, i) => ({ ...f, cwd: cwds[i] })).filter((f) => !(f.kind === "codex" && f.cwd === "/"))
 }

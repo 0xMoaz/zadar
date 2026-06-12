@@ -102,6 +102,8 @@ cumulative tokens **in the file**, so no lookup tables for context%.
 
 - **`session_meta`** (line 1): `payload.{id, cwd, originator, cli_version, model_provider}` → cwd is in-file.
 - **`turn_context`**: `payload.{cwd, model:"gpt-5.5", approval_policy, …}` → authoritative model.
+  Written once at session start (and again on a model switch), **not** per turn — long
+  sessions push it past the tail window, so fall back to the immutable head.
 - **`token_count`** (the jackpot):
 ```jsonc
 { "info": {

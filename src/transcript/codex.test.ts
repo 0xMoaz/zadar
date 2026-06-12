@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
+import { appendFileSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { codexCost, findCodexSession, inferCodexStatus, parseCodex } from "./codex"
@@ -79,9 +79,58 @@ describe("session discovery + full parse", () => {
     expect(sig!.costUsd).toBeGreaterThan(0)
   })
 
+  test("model follows the newest turn_context when the session switches mid-flight", () => {
+    const cwd = "/Users/zee/Code/model-switch"
+    const turnContext = (model: string) => ({
+      timestamp: "2026-06-10T00:00:00Z",
+      type: "turn_context",
+      payload: { model },
+    })
+    const root = fixtureRoot(cwd, [
+      turnContext("gpt-5"),
+      ev("task_started"),
+      turnContext("gpt-5.5-codex"),
+      ev("agent_message", { message: "Continuing on the new model." }),
+    ])
+
+    const sig = parseCodex(cwd, "flag-model", Date.parse("2026-06-10T00:00:05Z"), root)
+    expect(sig!.model).toBe("gpt-5.5-codex")
+  })
+
+  test("model survives when the only turn_context predates the 128KB tail window", () => {
+    const cwd = "/Users/zee/Code/long-session"
+    const filler = Array.from({ length: 1600 }, (_, i) =>
+      ev("agent_message", { message: `progress update ${i} ${"x".repeat(80)}` }),
+    )
+    const root = fixtureRoot(cwd, [
+      { timestamp: "2026-06-10T00:00:00Z", type: "turn_context", payload: { model: "gpt-5.5" } },
+      ...filler,
+    ])
+
+    const sig = parseCodex(cwd, "", Date.parse("2026-06-10T00:00:05Z"), root)
+    expect(sig!.model).toBe("gpt-5.5")
+  })
+
   test("no matching cwd → null", () => {
     const root = fixtureRoot("/Users/zee/Code/other", [ev("task_started")])
     expect(findCodexSession("/Users/zee/Code/argo", root)).toBeNull()
     expect(parseCodex("/Users/zee/Code/argo", "gpt", Date.now(), root)).toBeNull()
+  })
+
+  test("a changed file busts the cached tail — fresh events show on the next parse", () => {
+    const cwd = "/Users/zee/Code/cache-bust"
+    const root = fixtureRoot(cwd, [ev("task_started")])
+    const path = join(root, "2026", "06", "10", "rollout-test.jsonl")
+
+    const first = parseCodex(cwd, "gpt", Date.parse("2026-06-10T00:00:05Z"), root)
+    expect(first!.status).toBe("working")
+
+    // the turn completes; mtime moves (set explicitly — append alone could land
+    // in the same timestamp grain on coarse filesystems)
+    appendFileSync(path, JSON.stringify({ ...ev("task_complete"), timestamp: "2026-06-10T00:00:08Z" }) + "\n")
+    utimesSync(path, new Date(), new Date("2026-06-10T00:00:08Z"))
+
+    const second = parseCodex(cwd, "gpt", Date.parse("2026-06-10T00:00:10Z"), root)
+    expect(second!.status).toBe("ready")
   })
 })
