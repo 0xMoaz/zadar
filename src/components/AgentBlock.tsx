@@ -1,12 +1,14 @@
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
-import { color, glyph, icon, projectHue, statusColor, statusGlyph, ctxColor, waitColor, workFrame } from "../theme"
+import { color, glyph, icon, projectHue, rail, statusColor, statusGlyph, ctxColor, waitColor, workFrame } from "../theme"
 import { clip, ctxCells, fmtCost, fmtDuration, fmtTokens, shorten, sparkline, wrapText } from "../format"
 import { Stat } from "./Stat"
 import { Keycap } from "./Keycap"
 
 const MAX_CHIPS = 9
 const INDENT = "     " // aligns content under the row name (gutter + glyph + space)
+// the disclosed story nests under the session on the shared rail (theme.rail)
+const { branch: RAIL, close: STOP, labelPad: LABELPAD } = rail
 
 /**
  * One agent, progressively disclosed:
@@ -38,7 +40,7 @@ export function AgentBlock({
   const idle = agent.status === "idle"
   const cells = ctxCells(agent.contextPct, 6, agent.ctxGhostPct)
   const narrow = width < 70
-  const textW = Math.max(20, width - INDENT.length - 2)
+  const textW = Math.max(20, width - RAIL.length - 2)
 
   // truthful pulse: bright only if the transcript advanced within ~one poll
   const pulse = agent.status === "working" && agent.idleSec <= 3
@@ -160,19 +162,15 @@ export function AgentBlock({
         <box flexDirection="column">
           {(agent.task ? wrapText(`“${agent.task}”`, textW - 6, 2) : []).map((l, i) => (
             <text key={`t${i}`}>
-              <span fg={color.fg}>
-                {INDENT}
-                {i === 0 ? `${icon.task} task  ` : "        "}
-              </span>
+              <span fg={color.faint}>{RAIL}</span>
+              <span fg={color.fg}>{i === 0 ? `${icon.task} task  ` : LABELPAD}</span>
               <span fg={color.fg}>{l}</span>
             </text>
           ))}
           {!urgent && agent.lastTool && (
             <text>
-              <span fg={color.fg}>
-                {INDENT}
-                {icon.pulse} {agent.status === "working" ? "now   " : "last  "}
-              </span>
+              <span fg={color.faint}>{RAIL}</span>
+              <span fg={color.fg}>{icon.pulse} {agent.status === "working" ? "now   " : "last  "}</span>
               <span fg={color.dim}>{clip(agent.lastTool, textW - 18)}</span>
               <span fg={color.faint}> · </span>
               <Stat s={`${fmtDuration(agent.idleSec)} ago`} value={color.dim} unit={color.faint} />
@@ -180,13 +178,15 @@ export function AgentBlock({
           )}
           {agent.lastSaid && (
             <text>
-              <span fg={color.fg}>{`${INDENT}${icon.comment} said  `}</span>
+              <span fg={color.faint}>{RAIL}</span>
+              <span fg={color.fg}>{`${icon.comment} said  `}</span>
               <span fg={color.dim}>“{clip(agent.lastSaid, textW - 10)}”</span>
             </text>
           )}
           {agent.diff && agent.diff.files > 0 && (
             <text>
-              <span fg={color.fg}>{`${INDENT}${icon.diff} built `}</span>
+              <span fg={color.faint}>{RAIL}</span>
+              <span fg={color.fg}>{`${icon.diff} built `}</span>
               <span fg={color.positive}>+{agent.diff.plus}</span>
               <span fg={color.danger}> −{agent.diff.minus}</span>
               <span fg={color.dim}> across </span>
@@ -194,16 +194,14 @@ export function AgentBlock({
               <span fg={color.fg}>, uncommitted</span>
             </text>
           )}
-          {/* the story above, the vitals below */}
+          {/* the story above, the vitals below — same rail, a soft divider */}
           <text fg={color.faint}>
-            {INDENT}
+            {RAIL}
             {"─".repeat(Math.max(12, Math.min(textW, 48)))}
           </text>
           <text>
-            <span fg={color.fg}>
-              {INDENT}
-              {agent.model}
-            </span>
+            <span fg={color.faint}>{RAIL}</span>
+            <span fg={color.fg}>{agent.model}</span>
             <span fg={color.dim}>{" · "}</span>
             <Stat s={`${fmtTokens(agent.tokens)} tok`} />
             <span fg={color.dim}> · {glyph.clock} </span>
@@ -238,7 +236,7 @@ export function AgentBlock({
             )}
           </text>
           <text fg={color.faint}>
-            {INDENT}
+            {STOP}
             {icon.dir} {shorten(agent.cwd)}
           </text>
         </box>

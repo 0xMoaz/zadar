@@ -79,6 +79,14 @@ export const glyph = {
   collapsed: "▸",
 } as const
 
+// the quiet nesting rail that hangs a row's disclosed detail beneath it —
+// a single vertical guide closing with a rounded foot, no noisy branches
+export const rail = {
+  branch: "   │  ",
+  close: "   ╰  ",
+  labelPad: "        ", // width of a story label (icon + " task  ") — aligns wraps
+} as const
+
 export function statusColor(s: AgentStatus): RGBA {
   switch (s) {
     case "waiting":
