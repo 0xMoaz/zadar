@@ -1,7 +1,7 @@
 {
   "name": "zadar",
   "version": "0.3.0",
-  "description": "Radar for your agent fleet — Claude Code & Codex sessions, dev servers, and git worktrees on one calm terminal scope.",
+  "description": "Radar for your agent fleet — see which Claude Code or Codex session needs you, and what it's asking, at a glance. Sessions, dev servers, and worktrees in one calm terminal view.",
   "type": "module",
   "license": "MIT",
   "author": "0xMoaz",

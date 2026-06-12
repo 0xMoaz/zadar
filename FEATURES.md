@@ -1,6 +1,7 @@
 # zadar — features
 
-Everything the dashboard does, in one place.
+zadar answers one question — *who needs you right now?* — and keeps every
+other signal ambient until it matters. This is the full tour.
 
 ## The queue — "Needs you"
 

@@ -2,9 +2,13 @@
 
 **Radar for your agent fleet.**
 
-You're running four parallel Claude Code sessions and a Codex run across git
-worktrees. Which one is blocked on you *right now*? zadar is the always-open
-terminal split that answers in a glance — and shows the exact question:
+Running several coding agents at once has one hidden cost: a blocked agent
+is silent. A session waiting on your answer looks exactly like a session
+making progress — until you go check every tab.
+
+zadar is an always-open terminal view that checks for you. It watches every
+Claude Code and Codex session on your machine and answers one question at a
+glance: **who needs you right now, and what for.**
 
 ```
 ▲ webapp · fix/auth                                              waiting · 8m
@@ -12,9 +16,18 @@ terminal split that answers in a glance — and shows the exact question:
      1  Overwrite    2  Merge keys
 ```
 
-Beneath that: who's working, who's near their context limit, what it's
-costing, which dev server is eating 14GB — and the keys to act on all of it
-without leaving the terminal.
+The question an agent is stuck on floats to the top, options included — you
+decide and move on. Errors, finished work waiting for review, and sick dev
+servers queue up the same way, ranked by urgency.
+
+Everything else stays quiet until it matters: who's actually working (the
+spinner moves only while the transcript does — a stalled session freezes),
+how close each session is to its context limit, what the fleet costs per
+hour, which dev server is eating 14GB, which worktrees are safe to prune.
+
+And setup is nothing. zadar reads the session files your agents already
+write — no wrapper, no SDK, no hooks into your workflow. Quit it and
+nothing changes; open it and you can see.
 
 ## Install
 
@@ -42,20 +55,16 @@ zadar
 > First run installs the zadar mark (the header logo) as a tiny font —
 > it appears after your next terminal restart. No configuration needed.
 
-## What you see
+## The view
 
-One calm view, urgency first:
+- **Needs you** — everything blocked on you, ranked: questions with their
+  answer options, tool approvals, errors, diffs awaiting review, sick servers.
+  When it's empty, it says so and gets out of the way.
+- **Sessions** — every live agent with truthful status, context %, and cost.
+- **Servers · Projects** — bound ports with memory and staleness; repos with
+  worktrees, dirty counts, and guarded pruning.
 
-- **Needs you** — every item blocked on you, ranked: questions (with their
-  answer options), pending tool approvals, errors, finished work awaiting
-  review, sick dev servers.
-- **Sessions** — every live Claude Code / Codex session with truthful status,
-  context %, and cost, read straight from the agents' own transcript files.
-  Nothing to configure.
-- **Servers** and **Projects** — bound ports with memory and staleness; repos
-  with their worktrees, dirty counts, and guarded pruning.
-
-The full tour lives in **[FEATURES.md](./FEATURES.md)**.
+The full tour is in **[FEATURES.md](./FEATURES.md)**.
 
 ## Keys
 
@@ -73,7 +82,7 @@ The full tour lives in **[FEATURES.md](./FEATURES.md)**.
 
 - **macOS** (arm64 or x64) — Linux is on the roadmap; the collectors are
   macOS-bound today.
-- Agents to watch: [Claude Code](https://claude.com/claude-code) and/or
+- Something to watch: [Claude Code](https://claude.com/claude-code) and/or
   [OpenAI Codex](https://openai.com/codex). zadar reads their session files;
   it never wraps or modifies them.
 
