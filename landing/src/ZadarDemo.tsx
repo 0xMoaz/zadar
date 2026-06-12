@@ -50,7 +50,7 @@ type Fleet = {
 
 const RHYTHM = {
   webapp: [1, 3, 5, 2, 4, 6, 3, 5, 7, 4, 6, 8],
-  zefleet: [2, 4, 6, 3, 1, 0, 2, 7, 9, 6, 8, 5],
+  zadar: [2, 4, 6, 3, 1, 0, 2, 7, 9, 6, 8, 5],
   api: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
 }
 
@@ -63,7 +63,7 @@ const agent = (over: Partial<Agent> & Pick<Agent, "id" | "name" | "branch" | "rh
 // the three sessions, in their resting (calm) form
 const calmAgents = (): Agent[] => [
   agent({ id: "webapp", name: "webapp/fix-auth", branch: "fix/auth-redirect", rhythm: RHYTHM.webapp, ctxPct: 52, cost: 0.4 }),
-  agent({ id: "zefleet", name: "zefleet", branch: "main", procs: 2, rhythm: RHYTHM.zefleet, ctxPct: 71, cost: 1.24 }),
+  agent({ id: "zadar", name: "zadar", branch: "main", procs: 2, rhythm: RHYTHM.zadar, ctxPct: 71, cost: 1.24 }),
   agent({ id: "api", name: "api-gateway", branch: "feat/rate-limit", rhythm: RHYTHM.api, ctxPct: 38, cost: 0.88, ghost: true, advancing: false }),
 ]
 
@@ -82,11 +82,11 @@ const QUESTION: QItem = {
   chips: ["Overwrite", "Merge keys"],
 }
 const REVIEW: QItem = {
-  id: "r-zefleet",
+  id: "r-zadar",
   kind: "review",
   glyph: G.ready,
   glyphColor: C.positive,
-  project: "zefleet",
+  project: "zadar",
   task: "write the getting-started guide",
   rightWord: "review",
   rightColor: C.positive,
@@ -135,7 +135,7 @@ function beats(): { fleet: Fleet; hold: number }[] {
   }) // brief: chip pressed, still showing — then it clears in the next (calm) beat
 
   const reviewAgents = () =>
-    calmAgents().map((a) => (a.id === "zefleet" ? { ...a, status: "ready" as Status, advancing: false } : a))
+    calmAgents().map((a) => (a.id === "zadar" ? { ...a, status: "ready" as Status, advancing: false } : a))
   const review = base({
     pills: { working: 2, waiting: 0, ready: 1, error: 0 },
     queue: [REVIEW],
@@ -217,7 +217,7 @@ export function ZadarDemo() {
           {[0, 1, 2].map((k) => (
             <span key={k} style={{ width: 11, height: 11, borderRadius: "50%", background: "oklch(0.35 0.012 255)" }} />
           ))}
-          <span style={{ ...mono, marginLeft: 8, fontSize: 12, color: C.faint }}>zadar — ~/Code/zefleet</span>
+          <span style={{ ...mono, marginLeft: 8, fontSize: 12, color: C.faint }}>zadar — ~/Code/zadar</span>
         </div>
 
         {/* screen — fixed height so the window never resizes between beats; the

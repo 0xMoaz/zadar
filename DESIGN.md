@@ -137,7 +137,7 @@ Codex agents from Claude.
 ```
  fleet   4 agents · 1 ▲ waiting · 2 working       ram 58%  swap 5.5G  load 4.7      23:25
 ╭ agents ─────────────────────────────────╮╭ webapp · fix/auth · opus-4.8 ──── ◷40m ╮
-│   ● zefleet  main      71% ▰▰▰▰▰▱  $1.24 ││                                        │
+│   ● zadar  main      71% ▰▰▰▰▰▱  $1.24 ││                                        │
 │   ● omnipair  feat      28% ▰▰▱▱▱▱  $0.31 ││ ▲ waiting for you · 8m                  │
 │ ▎▲ webapp     fix/auth  96% ▰▰▰▰▰▰  $3.90 ││   "Should I overwrite the existing      │
 │   ○ argo·codex agent-3  31% ▰▰▱▱▱▱  $0.12 ││    config at app/config.ts?"           │
@@ -163,7 +163,7 @@ swaps entirely per selection (Activity / Output / Cost views via `tab`).
  ram ⣀⣤⣶ 58%   swap 5.5G   load 4.7
  ─────────────────────────────────────────────────
  AGENTS
-   ● zefleet   main      71% ▰▰▰▰▰▱   $1.24
+   ● zadar   main      71% ▰▰▰▰▰▱   $1.24
    ● omnipair   feat      28% ▰▰▱▱▱▱   $0.31
  ▎▲ webapp      fix/auth  96% ▰▰▰▰▰▰   $3.90
      waiting · 8m

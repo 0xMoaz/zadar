@@ -1,6 +1,6 @@
 # Handoff — zadar landing & live demo
 
-**Date:** 2026-06-12 · **Repo:** `~/Code/zefleet` (the `zadar` TUI, published as `zadar` on npm)
+**Date:** 2026-06-12 · **Repo:** `~/Code/zadar` (the `zadar` TUI, published as `zadar` on npm)
 **Active focus:** the marketing page for **zee.gg/zadar**, centered on a **live animated terminal demo**.
 
 ---
@@ -63,7 +63,7 @@ Verify visually with `preview_screenshot`; the loop is ~18s so successive screen
   1. **Calm** (3.4s) — 3 working agents (`⠋`/`●`), "✓ nothing needs you".
   2. **Question** (4.2s) — webapp `working → waiting`: glyph `⠋ → ▲` (fg→amber), a Needs-you item springs in (`✻ webapp …` + wrapped question + `① ②` chips), header `●3→●2`+`▲1` springs, wordmark cyan→amber, legend `▲ waiting` lights.
   3. **Answered** (0.9s) — chip `①` flashes accent (`pressed`), then the next (calm) beat clears it.
-  4. **Review** (3.6s) — zefleet `working → ready` (`◆`, green), Needs-you review item + diff, header `◆1`.
+  4. **Review** (3.6s) — zadar `working → ready` (`◆`, green), Needs-you review item + diff, header `◆1`.
   5. **Server** (2.8s) — a `webapp · :3000 holding 14GB memory` item springs in **above** review (severity order; server-mem < ready).
   6. → **Calm**, loop.
 - **Motion:** `<AnimatePresence mode="popLayout">` + `layout` around the queue (items spring/slide in & out via `height:0↔auto`); `motion.span` color-morphs the agent glyph & wordmark; pills spring in/out; chips stagger.

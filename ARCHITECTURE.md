@@ -1,4 +1,4 @@
-# fleet — Architecture & Data Layer
+# zadar — Architecture & Data Layer
 
 > How the four hero signals (status+wait · last-activity · context% · cost) are
 > derived for Claude Code **and** Codex, plus the OpenTUI app structure. Every
@@ -37,7 +37,7 @@ lsof -a -p <pid> -d cwd -Fn | sed -n 's/^n//p' | head -1
 ```
 
 **cwd → transcript:** replace `/`→`-`:
-`/Users/zee/Code/zefleet` → `~/.claude/projects/-Users-zee-Code-zefleet/`.
+`/Users/zee/Code/zadar` → `~/.claude/projects/-Users-zee-Code-zadar/`.
 Pick the `.jsonl` with newest mtime; if the proc has `--resume <uuid>`, use
 `<uuid>.jsonl` directly (exact, robust). Cross-check: file's first-line
 `sessionId` == filename stem.
@@ -155,7 +155,7 @@ assistant chunks can repeat a `requestId` (ccusage does this).
 ## 6. Module structure
 
 ```
-fleet/
+zadar/
   src/
     collectors/
       process.ts      # ps/lsof → live agent PIDs, cwd, model, uptime, rss

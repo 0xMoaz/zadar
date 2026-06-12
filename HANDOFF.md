@@ -5,7 +5,7 @@
 > servers/worktrees), keeping the bash version as the data-semantics reference.
 >
 > This file is the cold-start context for a fresh session to plan and run
-> parallel agents. Repo: **zefleet**. CLI binary stays **fleet**. Start at
+> parallel agents. Repo: **zadar**. CLI binary: **zadar**. Start at
 > [README.md](./README.md).
 
 ---
