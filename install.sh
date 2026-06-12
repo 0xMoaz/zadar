@@ -59,9 +59,9 @@ case ":$PATH:" in
     esac
     if [ -n "$rc" ] && ! grep -qsF "$line" "$rc"; then
       printf '\n# zadar\n%s\n' "$line" >>"$rc"
-      echo "✓ PATH updated in ${rc/#"$HOME"/\~}"
+      echo "✓ PATH updated in ${rc/#"$HOME"/"~"}"
       echo
-      echo "→ open a new terminal (or: source ${rc/#"$HOME"/\~}) and run:  zadar"
+      echo "→ open a new terminal (or: source ${rc/#"$HOME"/"~"}) and run:  zadar"
     else
       echo
       echo "add it to your PATH, then run \`zadar\`:"
