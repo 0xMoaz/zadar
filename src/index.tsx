@@ -4,6 +4,7 @@ import { createRoot } from "@opentui/react"
 import { App } from "./App"
 import { applyTerminalPalette } from "./theme"
 import { collect } from "./collect"
+import { mockSnapshot } from "./mock"
 import { loadToday } from "./history"
 import { installKind, INSTALLER_URL, VERSION } from "./update"
 
@@ -79,4 +80,6 @@ try {
   /* no OSC support / not a tty → keep neutral defaults */
 }
 
-createRoot(renderer).render(<App />)
+// --demo / --mock: a curated showcase fleet (no real sessions touched), spinners live.
+const demo = argv.includes("--demo") || argv.includes("--mock")
+createRoot(renderer).render(demo ? <App snapshot={mockSnapshot} live={false} demo /> : <App />)

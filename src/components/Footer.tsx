@@ -9,10 +9,11 @@ const wOf = ([k, label]: Hint) => k.length + 2 + 1 + label.length + 2
 function Chips({ hints }: { hints: Hint[] }) {
   return (
     <text>
-      {hints.map(([k, label]) => (
+      {hints.map(([k, label], i) => (
         <span key={k + label}>
+          {i > 0 ? <span>{"  "}</span> : null}
           <Keycap k={k} />
-          <span fg={color.dim}> {label}  </span>
+          <span fg={color.dim}> {label}</span>
         </span>
       ))}
     </text>

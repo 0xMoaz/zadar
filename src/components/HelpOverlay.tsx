@@ -13,7 +13,6 @@ const ROWS: [string, string][] = [
   ["p", "prune a clean worktree (asks to confirm)"],
   ["t", "activity log — every status flip this session"],
   ["n", "toggle desktop notifications (on by default)"],
-  ["i", "show / hide idle sessions"],
   ["r", "refresh now"],
   ["?", "toggle this help"],
   ["q", "quit"],

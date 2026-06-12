@@ -20,6 +20,7 @@
   "scripts": {
     "fleet": "bun run src/index.tsx",
     "dev": "bun run src/index.tsx",
+    "demo": "bun run src/index.tsx --demo",
     "smoke": "bun run src/smoke.tsx",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

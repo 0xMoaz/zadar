@@ -13,6 +13,7 @@ export function Pillar({
   expanded,
   selected,
   dense = false,
+  pinned = false,
   onHeaderMouseDown,
   children,
 }: {
@@ -22,6 +23,7 @@ export function Pillar({
   expanded: boolean
   selected: boolean
   dense?: boolean
+  pinned?: boolean
   onHeaderMouseDown?: (e: { button: number }) => void
   children?: ReactNode
 }) {
@@ -33,9 +35,10 @@ export function Pillar({
           summary={summary}
           expanded={expanded}
           selected={selected}
+          pinned={pinned}
         />
       </box>
-      {expanded && children ? (
+      {(expanded || pinned) && children ? (
         <box paddingTop={dense ? 0 : 1} paddingLeft={1}>
           <box
             border={["left"]}

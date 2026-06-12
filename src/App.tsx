@@ -43,7 +43,7 @@ type Section = "queue" | "projects" | "sessions" | "servers"
 const LABEL: Record<Section, string> = {
   queue: "Needs you",
   projects: "Projects",
-  sessions: "Sessions",
+  sessions: "Active sessions",
   servers: "Servers",
 }
 
@@ -59,27 +59,35 @@ export function App({
   snapshot,
   live = true,
   pollMs = 2000,
+  demo = false,
+  initialOpen,
 }: {
   snapshot?: Snapshot
   live?: boolean
   pollMs?: number
+  /** mock-data showcase: static fleet, no real polling, but spinners still animate */
+  demo?: boolean
+  /** seed section fold state — used by the landing vignettes to focus each frame */
+  initialOpen?: Partial<Record<Section, boolean>>
 }) {
   const { width, height } = useTerminalDimensions()
   const renderer = useRenderer()
   const [snap, setSnap] = useState<Snapshot>(snapshot ?? emptySnapshot)
   const [selSid, setSelSid] = useState("h-queue")
-  const [open, setOpen] = useState<Record<Section, boolean>>({
+  // active sessions lead the boot view only when nothing needs you; when the
+  // queue has items, stay folded so the screen opens on what's urgent
+  const [open, setOpen] = useState<Record<Section, boolean>>(() => ({
     queue: true,
     projects: false,
-    sessions: true,
+    sessions: snapshot ? attentionQueue(snapshot).length === 0 : false,
     servers: false,
-  })
+    ...initialOpen,
+  }))
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
   const [toast, setToast] = useState("")
   const [help, setHelp] = useState(false)
   const [log, setLog] = useState(false)
-  const [showIdle, setShowIdle] = useState(false)
   const [notifyOn, setNotifyOn] = useState(true)
   const [updateVer, setUpdateVer] = useState<string | null>(null)
   // the flight recorder outlives the process — reload today's story on boot
@@ -88,9 +96,10 @@ export function App({
   const lastIdx = useRef(0)
   const prevStatuses = useRef<Map<string, Agent["status"]> | null>(null)
   const sbRef = useRef<any>(null)
+  const booted = useRef(false)
 
   const idleCount = snap.agents.filter((a) => !isActive(a)).length
-  const visibleAgents = showIdle ? snap.agents : snap.agents.filter(isActive)
+  const visibleAgents = snap.agents.filter(isActive)
   const waiting = snap.agents.filter((a) => a.status === "waiting").length
   const ready = snap.agents.filter((a) => a.status === "ready").length
   const errorN = snap.agents.filter((a) => a.status === "error").length
@@ -111,10 +120,10 @@ export function App({
     queue.some((i) => i.kind === "question" || i.kind === "approval") ||
     snap.agents.some((a) => a.status === "working" && a.idleSec <= 3)
   useEffect(() => {
-    if (!live || !spinning) return
+    if ((!live && !demo) || !spinning) return
     const id = setInterval(() => setTick((t) => t + 1), 120)
     return () => clearInterval(id)
-  }, [live, spinning])
+  }, [live, demo, spinning])
 
   // sizing tiers — fleet lives in splits; rows and air adapt to the pane
   const cardWidth = Math.max(36, width - 7)
@@ -165,7 +174,7 @@ export function App({
       const parts = [`${visibleAgents.length} active`]
       if (waiting) parts.push(`${waiting} waiting`)
       if (ready) parts.push(`${ready} ready`)
-      if (idleCount && !showIdle) parts.push(`${idleCount} idle`)
+      if (idleCount) parts.push(`${idleCount} idle`)
       return parts.join(" · ")
     }
     return snap.servers.length === 0
@@ -194,7 +203,11 @@ export function App({
     }
     process.exit(0)
   }
-  const toggleSection = (s: Section) => setOpen((o) => ({ ...o, [s]: !o[s] }))
+  // the queue is pinned open — it's the whole point of the app, never foldable
+  const toggleSection = (s: Section) => {
+    if (s === "queue") return
+    setOpen((o) => ({ ...o, [s]: !o[s] }))
+  }
   const setRowOpen = (sid: string, v: boolean) =>
     setOpenRows((prev) => {
       const n = new Set(prev)
@@ -252,7 +265,14 @@ export function App({
     const tick = async () => {
       try {
         const s = await collect()
-        if (on) setSnap(s)
+        if (!on) return
+        setSnap(s)
+        // on the first real snapshot, unfold active sessions if nothing needs you
+        if (!booted.current) {
+          booted.current = true
+          if (initialOpen?.sessions === undefined && attentionQueue(s).length === 0)
+            setOpen((o) => ({ ...o, sessions: true }))
+        }
       } catch {
         /* keep last good snapshot */
       }
@@ -336,8 +356,7 @@ export function App({
         const idx = rows.findIndex((r) => r.kind === "header" && r.section === cur.section)
         if (idx >= 0) setSelSid(rows[idx].sid)
       }
-    } else if (k === "i") setShowIdle((v) => !v)
-    else if (k === "return") {
+    } else if (k === "return") {
       if (cur) activate(cur)
     } else if (k === "space") {
       if (!cur) return
@@ -407,13 +426,15 @@ export function App({
   const primary = !cur
     ? "select"
     : cur.kind === "header"
-      ? open[cur.section]
-        ? "fold"
-        : "unfold"
+      ? cur.section === "queue"
+        ? "" // pinned — nothing to fold
+        : open[cur.section]
+          ? "fold"
+          : "unfold"
       : cur.kind === "queue"
         ? "go"
         : cur.kind === "server"
-          ? "open"
+          ? "browser"
           : cur.kind === "project"
             ? openRows.has(cur.sid)
               ? "collapse"
@@ -430,13 +451,12 @@ export function App({
   const ctxHints: Hint[] = (() => {
     if (short || inOverlay) return []
     const h: Hint[] = []
-    if (cur && cur.kind !== "wtitem") h.push(["⏎", primary])
+    if (cur && cur.kind !== "wtitem" && primary) h.push(["⏎", primary])
     if (cur?.kind === "queue" || cur?.kind === "server")
       h.push(["␣", openRows.has(cur.sid) ? "collapse" : "inspect"])
     if (cur?.kind === "agent") h.push(["o", "open"])
     if (targetAgent || targetServer) h.push(["c", "copy"], ["x", "kill"])
     if (cur?.kind === "wtitem") h.push(["p", "prune"])
-    if (idleCount > 0 || showIdle) h.push(["i", showIdle ? "hide idle" : `+${idleCount} idle`])
     return h
   })()
   const sysHints: Hint[] = inOverlay ? [["esc", "back"]] : [["?", "help"]]
@@ -497,6 +517,7 @@ export function App({
                   expanded={open.queue}
                   selected={curSid === "h-queue"}
                   dense={dense}
+                  pinned
                 >
                   {queue.length === 0 ? (
                     <text>

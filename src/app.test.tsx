@@ -41,20 +41,23 @@ describe("the one view — urgency first", () => {
     expect(f).toContain("1  Overwrite")
     expect(f).toContain(":3000 holding 14GB of memory")
     expect(f).toContain("review +214 −38 across 9 files")
-    expect(f).toContain("Sessions")
+    expect(f).toContain("Active sessions")
     expect(f).toContain("Servers")
     expect(f).toContain("Projects")
     expect(f).not.toContain("playground") // idle stays hidden in sessions until i
   })
 
-  test("space on a queue item inspects its full entity in place", async () => {
+  test("space on a queue item reveals its decision context, not session plumbing", async () => {
     const s = await mount(110, 44)
-    await press(s, "j", " ")
+    // the error item (3rd) only says "failed tool call" on its row — unfolding
+    // surfaces the failing action, and keeps the pid/model/cwd plumbing out
+    await press(s, "j", "j", "j", " ")
     let f = s.captureCharFrame()
-    expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
+    expect(f).toContain("run bun test") // the failing action — the context you need
+    expect(f).not.toContain("~/Code") // no cwd; that lives in Active sessions
     await press(s, " ")
     f = s.captureCharFrame()
-    expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")
+    expect(f).not.toContain("run bun test")
   })
 
   test("x on a queue item targets the underlying agent; n cancels", async () => {
@@ -68,24 +71,22 @@ describe("the one view — urgency first", () => {
     expect(f).not.toContain("y / n")
   })
 
-  test("Enter discloses a session's story; i reveals idle", async () => {
+  test("Enter discloses a session's story", async () => {
     const s = await mount()
-    // fold the queue, step to Sessions, then the first agent
-    await press(s, "RETURN", "j", "j", "RETURN")
-    let f = s.captureCharFrame()
+    // queue is pinned open — walk down past it (6 items) to the Active sessions
+    // header (folded at boot while the queue has items), open it, step to the first agent
+    await press(s, "j", "j", "j", "j", "j", "j", "j", "RETURN", "j", "RETURN")
+    const f = s.captureCharFrame()
     expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
     expect(f).toContain("task") // labeled story rows, not a tool log
     expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
-    await press(s, "RETURN", "i")
-    f = s.captureCharFrame()
-    expect(f).not.toContain("~/Code/webapp/.claude/worktrees/fix-auth")
-    expect(f).toContain("playground")
   })
 
   test("Projects drills into worktrees; p guards dirty, confirms clean", async () => {
-    const s = await mount(100, 50)
-    // fold queue + sessions, walk to Projects, unfold, walk to omnipair-webapp (7th), open
-    await press(s, "RETURN", "j", "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN")
+    const s = await mount(100, 90)
+    // queue is pinned, so G lands on the collapsed Projects header; open it, walk to
+    // omnipair-webapp (7th project group, alphabetical), expand its worktrees
+    await press(s, "G", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN")
     let f = s.captureCharFrame()
     expect(f).toContain("feat-pairing")
     expect(f).toContain("feat/pairing")
@@ -101,8 +102,8 @@ describe("the one view — urgency first", () => {
   })
 
   test("G jumps to Projects; opening it shows every repo, idle included", async () => {
-    const s = await mount(100, 60)
-    await press(s, "RETURN", "G", "RETURN")
+    const s = await mount(100, 90)
+    await press(s, "G", "RETURN") // G → pinned-queue means last row is Projects; open it
     const f = s.captureCharFrame()
     expect(f).toContain("api-gateway")
     expect(f).toContain("playground")
