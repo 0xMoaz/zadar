@@ -34,8 +34,11 @@ data contract.
 curl -fsSL https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh | bash
 
 # or, with Bun installed:
-bunx zadar                     # zero-install try
+bunx zadar                     # disposable try — nothing lands on your PATH
 bun add -g zadar               # keep it
+
+# npm works too (zadar runs on Bun, so Bun must be installed):
+npm install -g zadar           # or: npx zadar
 ```
 
 Then just run `zadar` (the curl installer adds it to your PATH — open a new
