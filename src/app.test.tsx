@@ -54,7 +54,7 @@ describe("the one view — urgency first", () => {
     await press(s, "j", "j", "j", " ")
     let f = s.captureCharFrame()
     expect(f).toContain("run bun test") // the failing action — the context you need
-    expect(f).not.toContain("~/Code") // no cwd; that lives in Active sessions
+    expect(f).not.toContain("Code/webapp") // no cwd; that lives in Active sessions
     await press(s, " ")
     f = s.captureCharFrame()
     expect(f).not.toContain("run bun test")
@@ -77,7 +77,7 @@ describe("the one view — urgency first", () => {
     // header (folded at boot while the queue has items), open it, step to the first agent
     await press(s, "j", "j", "j", "j", "j", "j", "j", "RETURN", "j", "RETURN")
     const f = s.captureCharFrame()
-    expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
+    expect(f).toContain("Code/webapp/.claude/worktrees/fix-auth") // suffix — ~ collapse depends on $HOME
     expect(f).toContain("task") // labeled story rows, not a tool log
     expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
     expect(f).toContain("opus-4.8 1m") // the model names the engine — no brand mark needed
