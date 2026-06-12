@@ -18,3 +18,12 @@ zig-cache/
 .env.local
 *.log
 .DS_Store
+
+# internal docs & personal tooling — local only, never published
+ARCHITECTURE.md
+DESIGN.md
+HANDOFF.md
+landing/HANDOFF.md
+tasks/
+reference/
+.claude/
