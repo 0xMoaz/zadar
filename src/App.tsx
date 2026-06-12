@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
 import { invalidateWorktrees } from "./collectors/worktrees"
@@ -98,27 +98,54 @@ export function App({
   const sbRef = useRef<any>(null)
   const booted = useRef(false)
 
-  const idleCount = snap.agents.filter((a) => !isActive(a)).length
-  const visibleAgents = snap.agents.filter(isActive)
-  const waiting = snap.agents.filter((a) => a.status === "waiting").length
-  const ready = snap.agents.filter((a) => a.status === "ready").length
-  const errorN = snap.agents.filter((a) => a.status === "error").length
-  const workingN = snap.agents.filter((a) => a.status === "working").length
-  const worstWait = Math.max(0, ...snap.agents.filter((a) => a.status === "waiting").map((a) => a.idleSec))
-  const fleetBurn = snap.agents.reduce((n, a) => n + (a.burnPerHour ?? 0), 0)
+  // the derived view model recomputes when the data changes (once per poll),
+  // not on every render — the 120ms spinner tick re-renders App ~16× per poll
+  const {
+    idleCount,
+    visibleAgents,
+    waiting,
+    ready,
+    errorN,
+    workingN,
+    worstWait,
+    fleetBurn,
+    queue,
+    groups,
+    serverMem,
+    staleN,
+    dirtyN,
+    presentStates,
+    spinning,
+  } = useMemo(() => {
+    const visibleAgents = snap.agents.filter(isActive)
+    const queue = attentionQueue(snap)
+    return {
+      idleCount: snap.agents.length - visibleAgents.length,
+      visibleAgents,
+      waiting: snap.agents.filter((a) => a.status === "waiting").length,
+      ready: snap.agents.filter((a) => a.status === "ready").length,
+      errorN: snap.agents.filter((a) => a.status === "error").length,
+      workingN: snap.agents.filter((a) => a.status === "working").length,
+      worstWait: Math.max(0, ...snap.agents.filter((a) => a.status === "waiting").map((a) => a.idleSec)),
+      fleetBurn: snap.agents.reduce((n, a) => n + (a.burnPerHour ?? 0), 0),
+      queue,
+      groups: groupByProject(snap),
+      serverMem: snap.servers.reduce((n, s) => n + s.memKB, 0),
+      staleN: snap.servers.filter((s) => s.stale).length,
+      dirtyN: snap.worktrees.reduce((n, w) => n + w.changed, 0),
+      presentStates: new Set(snap.agents.map((a) => a.status)),
+      spinning:
+        queue.some((i) => i.kind === "question" || i.kind === "approval") ||
+        snap.agents.some((a) => a.status === "working" && a.idleSec <= 3),
+    }
+  }, [snap])
   // the chrome reports the worst case — the wordmark is readable from across the room
   const beacon = errorN > 0 || worstWait > 300 ? color.danger : waiting > 0 ? color.attention : color.accent
-
-  const queue = attentionQueue(snap)
-  const groups = groupByProject(snap)
 
   // one shared ticker — the sparkle (needs-you) and the braille work-glyph both
   // ride it. Runs only while something is genuinely in motion: a pending ask, or
   // a session whose transcript advanced this poll (the same gate AgentBlock spins on).
   const [tick, setTick] = useState(0)
-  const spinning =
-    queue.some((i) => i.kind === "question" || i.kind === "approval") ||
-    snap.agents.some((a) => a.status === "working" && a.idleSec <= 3)
   useEffect(() => {
     if ((!live && !demo) || !spinning) return
     const id = setInterval(() => setTick((t) => t + 1), 120)
@@ -131,26 +158,29 @@ export function App({
   const short = height < 14
 
   // flattened, navigable rows — one view: urgency first, then the world
-  const rows: Row[] = []
-  rows.push({ sid: "h-queue", kind: "header", section: "queue" })
-  if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
-  rows.push({ sid: "h-sessions", kind: "header", section: "sessions" })
-  if (open.sessions)
-    visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
-  rows.push({ sid: "h-servers", kind: "header", section: "servers" })
-  if (open.servers)
-    snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
-  rows.push({ sid: "h-projects", kind: "header", section: "projects" })
-  if (open.projects)
-    groups.forEach((g) => {
-      rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
-      if (openRows.has(`pj-${g.key}`) && g.worktrees) {
-        const w = g.worktrees
-        w.items.forEach((it) =>
-          rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
-        )
-      }
-    })
+  const rows = useMemo<Row[]>(() => {
+    const rows: Row[] = []
+    rows.push({ sid: "h-queue", kind: "header", section: "queue" })
+    if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
+    rows.push({ sid: "h-sessions", kind: "header", section: "sessions" })
+    if (open.sessions)
+      visibleAgents.forEach((a) => rows.push({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
+    rows.push({ sid: "h-servers", kind: "header", section: "servers" })
+    if (open.servers)
+      snap.servers.forEach((s) => rows.push({ sid: `s-${s.pid}`, kind: "server", section: "servers", server: s }))
+    rows.push({ sid: "h-projects", kind: "header", section: "projects" })
+    if (open.projects)
+      groups.forEach((g) => {
+        rows.push({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g })
+        if (openRows.has(`pj-${g.key}`) && g.worktrees) {
+          const w = g.worktrees
+          w.items.forEach((it) =>
+            rows.push({ sid: `wi-${w.repo}-${it.name}`, kind: "wtitem", section: "projects", repo: w, item: it }),
+          )
+        }
+      })
+    return rows
+  }, [queue, groups, visibleAgents, snap.servers, open, openRows])
 
   // selection follows identity, not position — re-sorts never move it under you
   const found = rows.findIndex((r) => r.sid === selSid)
@@ -159,9 +189,6 @@ export function App({
   const cur = rows[selIdx]
   const curSid = cur?.sid
 
-  const serverMem = snap.servers.reduce((n, s) => n + s.memKB, 0)
-  const staleN = snap.servers.filter((s) => s.stale).length
-  const dirtyN = snap.worktrees.reduce((n, w) => n + w.changed, 0)
   const summaryFor = (s: Section): string => {
     if (s === "queue") return queue.length === 0 ? "clear" : `${queue.length} ${queue.length === 1 ? "item" : "items"}`
     if (s === "projects") {
@@ -459,14 +486,23 @@ export function App({
     if (cur?.kind === "wtitem") h.push(["p", "prune"])
     return h
   })()
-  const sysHints: Hint[] = inOverlay ? [["esc", "back"]] : [["?", "help"]]
-
-  // the last few status flips — what you missed while looking away
-  const presentStates = new Set(snap.agents.map((a) => a.status))
+  const sysHints: Hint[] = inOverlay
+    ? [["esc", "back"]]
+    : [
+        ["?", "help"],
+        ["q", "quit"],
+      ]
 
   const renderAgent = (a: Agent) => (
     <box key={`a-${a.id}`} id={`a-${a.id}`} onMouseDown={clickRow(`a-${a.id}`)}>
-      <AgentBlock agent={a} selected={curSid === `a-${a.id}`} expanded={openRows.has(`a-${a.id}`)} width={cardWidth} tick={tick} />
+      {/* tick only reaches blocks that animate — everything else memo-bails on spinner frames */}
+      <AgentBlock
+        agent={a}
+        selected={curSid === `a-${a.id}`}
+        expanded={openRows.has(`a-${a.id}`)}
+        width={cardWidth}
+        tick={a.status === "working" && a.idleSec <= 3 ? tick : 0}
+      />
     </box>
   )
   const renderServer = (s: DevServer) => (
@@ -480,7 +516,7 @@ export function App({
       <box flexShrink={0} flexDirection="row" justifyContent="space-between" paddingTop={dense ? 0 : 1}>
         <text>
           <span fg={beacon} attributes={TextAttributes.BOLD}>
-            zadar
+            {icon.mark} zadar
           </span>
           {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
           {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}
@@ -533,7 +569,12 @@ export function App({
                     queue.map((it) => (
                       <box key={`q-${it.id}`} flexDirection="column">
                         <box id={`q-${it.id}`} onMouseDown={clickRow(`q-${it.id}`)}>
-                          <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} tick={tick} />
+                          <QueueItem
+                            item={it}
+                            selected={curSid === `q-${it.id}`}
+                            width={cardWidth}
+                            tick={it.kind === "question" || it.kind === "approval" ? tick : 0}
+                          />
                         </box>
                         {openRows.has(`q-${it.id}`) && it.agent ? (
                           <QueueDetail agent={it.agent} width={cardWidth} />

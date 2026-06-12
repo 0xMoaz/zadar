@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { Agent } from "../types"
 import { color, glyph, icon, projectHue, rail, statusColor, statusGlyph, ctxColor, waitColor, workFrame } from "../theme"
@@ -22,7 +23,7 @@ const { branch: RAIL, close: STOP, labelPad: LABELPAD } = rail
  * with age (typographic decay); a ready row's badge is its diff (+/-);
  * a faint ghost on the ctx bar marks a fresh compaction's high-water mark.
  */
-export function AgentBlock({
+export const AgentBlock = memo(function AgentBlock({
   agent,
   selected,
   expanded,
@@ -84,7 +85,6 @@ export function AgentBlock({
             </span>
           ) : null}
           {agent.procs > 1 && <span fg={color.dim}>{`  ×${agent.procs}`}</span>}
-          {agent.kind === "codex" && <span fg={color.faint}>{`  ${icon.codex} codex`}</span>}
         </text>
         {urgent ? (
           <text>
@@ -243,4 +243,4 @@ export function AgentBlock({
       )}
     </box>
   )
-}
+})

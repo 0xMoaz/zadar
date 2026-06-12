@@ -80,6 +80,8 @@ describe("the one view — urgency first", () => {
     expect(f).toContain("~/Code/webapp/.claude/worktrees/fix-auth")
     expect(f).toContain("task") // labeled story rows, not a tool log
     expect(f).toContain("“fix the auth redirect loop on the marketing pages”")
+    expect(f).toContain("opus-4.8 1m") // the model names the engine — no brand mark needed
+    expect(f).not.toContain("⬡") // codex rows carry no kind suffix (infra/codex is visible here)
   })
 
   test("Projects drills into worktrees; p guards dirty, confirms clean", async () => {
