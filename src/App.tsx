@@ -23,6 +23,7 @@ import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeItemRow } from "./components/WorktreeCard"
 import { QueueItem } from "./components/QueueItem"
+import { QueueDetail } from "./components/QueueDetail"
 import { ProjectCard } from "./components/ProjectCard"
 import { Pillar } from "./components/Pillar"
 import { Rule } from "./components/Rule"
@@ -514,9 +515,7 @@ export function App({
                           <QueueItem item={it} selected={curSid === `q-${it.id}`} width={cardWidth} tick={tick} />
                         </box>
                         {openRows.has(`q-${it.id}`) && it.agent ? (
-                          <box paddingTop={dense ? 0 : 1}>
-                            <AgentBlock agent={it.agent} selected={false} expanded width={cardWidth} tick={tick} />
-                          </box>
+                          <QueueDetail agent={it.agent} width={cardWidth} />
                         ) : openRows.has(`q-${it.id}`) && it.server ? (
                           <box paddingTop={dense ? 0 : 1}>
                             <ServerCard server={it.server} expanded width={cardWidth} />
