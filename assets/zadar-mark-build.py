@@ -1,4 +1,4 @@
-"""Build the zadar mark TTF at U+E000 from the Figma source paths (node 278:512).
+"""Build the zadar mark TTF at U+E100 from the Figma source paths (node 278:512).
 Visor + smile are filled paths taken verbatim; the dome is a 4.8-wide round-cap
 stroke, expanded here by sampling + normal offset. SVG space: 50x48 y-down."""
 import math
@@ -68,7 +68,7 @@ glyph = tt.glyph()
 empty = TTGlyphPen(None).glyph()
 fb = FontBuilder(UPM, isTTF=True)
 fb.setupGlyphOrder([".notdef", "space", "zadar.mark"])
-fb.setupCharacterMap({0x0020: "space", 0xE000: "zadar.mark"})
+fb.setupCharacterMap({0x0020: "space", 0xE100: "zadar.mark"})
 fb.setupGlyf({".notdef": empty, "space": empty, "zadar.mark": glyph})
 fb.setupHorizontalMetrics({".notdef": (ADV, 0), "space": (ADV, 0), "zadar.mark": (ADV, -100)})
 fb.setupHorizontalHeader(ascent=800, descent=-200)

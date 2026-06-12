@@ -37,9 +37,9 @@ export function applyTerminalPalette(tc: TerminalColors): void {
 // Nerd Font icons (Ghostty ships a built-in NF fallback, so these render
 // even without a patched font). Identity, not decoration — used sparingly.
 export const icon = {
-  // the zadar mark (visor + smile) — PUA U+E000, served by the local "Zadar Mark"
-  // font via terminal fallback; without it the header degrades to tofu + wordmark
-  mark: "",
+  // the zadar mark — U+E100, served by the bundled "Zadar Mark" font (a PUA
+  // gap no common font claims, so system fallback finds it; see src/mark.ts)
+  mark: "",
   branch: "", // oct-git_branch — carries the project hue
   server: "", // oct-server
   repo: "", // oct-repo — projects ARE repos

@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import { App } from "./App"
+import { ensureMark } from "./mark"
 import { applyTerminalPalette } from "./theme"
 import { collect } from "./collect"
 import { mockSnapshot } from "./mock"
@@ -105,4 +106,5 @@ try {
 
 // --demo / --mock: a curated showcase fleet (no real sessions touched), spinners live.
 const demo = argv.includes("--demo") || argv.includes("--mock")
-createRoot(renderer).render(demo ? <App snapshot={mockSnapshot} live={false} demo /> : <App />)
+const mark = ensureMark()
+createRoot(renderer).render(demo ? <App snapshot={mockSnapshot} live={false} demo mark={mark} /> : <App mark={mark} />)

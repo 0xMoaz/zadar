@@ -60,6 +60,7 @@ export function App({
   live = true,
   pollMs = 2000,
   demo = false,
+  mark = false,
   initialOpen,
 }: {
   snapshot?: Snapshot
@@ -67,6 +68,8 @@ export function App({
   pollMs?: number
   /** mock-data showcase: static fleet, no real polling, but spinners still animate */
   demo?: boolean
+  /** render the zadar mark before the wordmark (only when its font is installed) */
+  mark?: boolean
   /** seed section fold state — used by the landing vignettes to focus each frame */
   initialOpen?: Partial<Record<Section, boolean>>
 }) {
@@ -516,7 +519,7 @@ export function App({
       <box flexShrink={0} flexDirection="row" justifyContent="space-between" paddingTop={dense ? 0 : 1}>
         <text>
           <span fg={beacon} attributes={TextAttributes.BOLD}>
-            {icon.mark} zadar
+            {mark ? `${icon.mark} ` : ""}zadar
           </span>
           {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
           {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}

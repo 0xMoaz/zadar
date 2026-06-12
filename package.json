@@ -17,6 +17,7 @@
   "bin": {
     "zadar": "bin/zadar.mjs"
   },
+  "files": ["bin", "src", "assets"],
   "scripts": {
     "fleet": "bun run src/index.tsx",
     "dev": "bun run src/index.tsx",

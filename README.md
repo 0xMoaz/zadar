@@ -38,6 +38,12 @@ bunx zadar                     # zero-install try
 bun add -g zadar               # keep it
 ```
 
+First run installs the bundled **Zadar Mark** font (the header logo) into your
+user fonts — restart your terminal once and the wordmark wears it. No terminal
+configuration needed: the mark sits at a private-use codepoint (U+E100) that
+system font fallback resolves on its own. Without the font, the header is the
+plain wordmark.
+
 Updating: zadar checks the registry ambiently (once a day, never blocking)
 and shows a faint `↑version` in the header when you're behind — then
 `zadar upgrade` updates in place, using whichever way you installed.

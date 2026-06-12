@@ -140,5 +140,13 @@ describe("header beacon", () => {
     expect(f).toContain("✕1")
     expect(f).toContain("◆1")
     expect(f).toContain("$7.3/h")
+    expect(f).not.toContain("") // mark stays off unless its font is known-installed
+  })
+
+  test("wears the zadar mark when the font is available", async () => {
+    const setup = await testRender(<App snapshot={mockSnapshot} live={false} mark />, { width: 100, height: 40 })
+    await setup.renderOnce()
+    current = setup
+    expect(setup.captureCharFrame()).toContain(" zadar")
   })
 })
