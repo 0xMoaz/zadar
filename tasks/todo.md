@@ -1,3 +1,62 @@
+# pre-launch architecture pass — 2026-06-12
+
+Report: `$TMPDIR/architecture-review-20260612-174737.html` (C1–C7).
+Rule of the pass: identical observable behavior, strictly less work.
+
+## C1 — transcript freshness decided once
+- [x] mtime-gated tail cache in claude.ts + codex.ts (skip read+parse when unchanged)
+- [x] TTL the discovery sweeps (claude project-dir pick ~5s, codex day-walk ~10s);
+      always stat the chosen file fresh so live signals never lag
+- [x] claude 1MB task dig retries on a 10s TTL while unfound (review caught that a
+      one-shot "" sentinel could blank the task line for a whole session)
+
+## C2 — batch the probes, run collectors concurrently
+- [x] servers.ts: one batched `ps -p p1,p2,…` for all listeners (was 1+3×N serial)
+- [x] collect.ts: per-agent git lookups in parallel; servers/worktrees start
+      concurrently with the agent loop; burn/ghost mutation stays sequential
+
+## C3 — derive the view model at poll rate, not spinner rate
+- [x] useMemo the derived chain (counts, queue, groups, rows) on [snap, folds]
+- [x] React.memo pure cards; animated components receive tick only while animating
+
+## C4 — cache lifecycle
+- [x] SessionCache (transcript/cache.ts): touch-and-sweep, 5min unused → dropped
+
+## C5 — seam hygiene (zero-risk slice only)
+- [x] shared snippet() in status.ts; codex thresholds use named constants
+      (full TranscriptSignals unification deliberately deferred — see report C5)
+
+## C6 — error observability
+- [x] swallowed unhandledRejection/uncaughtException append to ~/.zadar/errors.log
+      (256KB cap, rotated to .1 at launch)
+
+## Verify
+- [x] 110 tests green (+1 new: codex tail-cache busts on file change) · tsc clean ·
+      smoke renders · live probe correct on this machine
+
+## Review log
+
+- **Audit**: 4 parallel Explore agents + manual verification of every hot file.
+  Report: `$TMPDIR/architecture-review-20260612-174737.html`. View-layer seams
+  (fleetmap/format/theme/history, real–mock) confirmed healthy by deletion test.
+- **Measured** (same machine, 1 active agent + 1 server): warm tick 210–290ms →
+  ~87ms; cold 946ms → ~650ms. Gap widens with more listeners/idle agents.
+- **Equivalence**: old-vs-new parseClaude on the identical live transcript →
+  byte-identical signals. Old/new collect() compared live.
+- **Adversarial review** (code-reviewer agent over the diff) found 3 fix-first
+  items, all fixed: sticky "" task sentinel (→ 10s re-dig TTL), codex negative
+  walk cache (→ negatives not cached, found-only), errors.log rotation comment
+  was a lie (→ real rotation at launch). Everything else verified clean.
+- **Accepted relaxation** (documented, not silent): a NEWER session file in an
+  already-watched cwd is picked up within ≤5s (claude) / ≤10s (codex) instead of
+  ≤2s — same class as the existing 15s worktree cache. First sessions and all
+  live-file signals are unaffected (chosen file is stat'd fresh every tick).
+- **Deferred**: C5-full (one TranscriptSignals seam), C7 (App.tsx selection/fold
+  hooks — wait for a forcing feature). Pre-existing quirk flagged: codex
+  turn_context model scan takes the OLDEST match (spawned as separate task).
+
+---
+
 # fleet v3 — attention queue + project map
 
 Branch: `overhaul/v3-attention-queue` (off v2). The rethink: **attention is
