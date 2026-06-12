@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>zadar — radar for your agent fleet</title>
+<meta name="description" content="One calm terminal scope for every Claude Code & Codex session, dev server, and git worktree. Which agent needs you — right now." />
+<link rel="icon" type="image/png" href="assets/zadar-icon.png" />
+<meta property="og:title" content="zadar — radar for your agent fleet" />
+<meta property="og:description" content="Which agent needs you — right now. One calm terminal scope for every Claude Code & Codex session, dev server, and git worktree." />
+<meta property="og:image" content="assets/zadar-icon.png" />
+<meta name="theme-color" content="#0d0f13" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  @font-face{font-family:"ZadarSymbols";src:url("assets/zadar-symbols.woff2") format("woff2");font-display:swap}
+  :root{
+    --bg:#0d0f13; --panel:#16181d; --line:#20242b;
+    --fg:#c8cdd4; --dim:#6b7280; --faint:#3b4048;
+    --accent:#56b6c2; --attention:#e6b450; --danger:#e05252; --positive:#7fb069;
+    --pill:#22262d;
+    --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+    --mono:"JetBrains Mono","ZadarSymbols",ui-monospace,"SF Mono","Menlo",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{
+    background:var(--bg);color:var(--fg);font-family:var(--sans);
+    line-height:1.6;min-height:100vh;
+    background-image:radial-gradient(1200px 600px at 50% -10%, rgba(86,182,194,.06), transparent 70%);
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px}
+  .wrap-wide{max-width:880px;margin:0 auto;padding:0 24px}
+
+  /* header */
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:500;letter-spacing:-.01em}
+  .brand img{width:26px;height:26px;border-radius:7px}
+  .ghlink{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--dim);
+    border:1px solid var(--line);border-radius:8px;padding:7px 12px;transition:.15s}
+  .ghlink:hover{color:var(--fg);border-color:var(--faint);background:rgba(255,255,255,.02)}
+
+  /* hero */
+  .hero{text-align:center;padding:54px 0 30px}
+  .hero img.mark{width:96px;height:96px;border-radius:24px;margin-bottom:26px;
+    filter:drop-shadow(0 12px 40px rgba(0,0,0,.55))}
+  h1{font-size:42px;line-height:1.12;font-weight:560;letter-spacing:-.03em;
+    text-wrap:balance;background:linear-gradient(180deg,#fff,#aeb6c0);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:18px auto 0;max-width:540px;font-size:18px;color:var(--dim);text-wrap:pretty}
+  .sub b{color:var(--fg);font-weight:500}
+
+  /* install */
+  .cta{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:30px}
+  .cmd{display:inline-flex;align-items:center;gap:14px;font-family:var(--mono);font-size:14.5px;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 16px;color:var(--fg)}
+  .cmd .pmt{color:var(--accent)}
+  .cmd button{font:inherit;font-size:12px;color:var(--dim);background:transparent;border:0;
+    border-left:1px solid var(--line);padding-left:14px;cursor:pointer;transition:.15s}
+  .cmd button:hover{color:var(--fg)}
+  .alt{font-size:13px;color:var(--faint);margin-top:12px;font-family:var(--mono)}
+
+  /* terminal demo */
+  .term{margin:8px 0;background:var(--panel);border:1px solid var(--line);border-radius:13px;
+    overflow:hidden;box-shadow:0 24px 70px -20px rgba(0,0,0,.7)}
+  .term .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .term .bar i{width:11px;height:11px;border-radius:50%;background:#34383f;display:inline-block}
+  .term .bar .ti{margin-left:8px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+  pre.screen{font-family:var(--mono);font-size:12.5px;line-height:1.6;padding:16px 18px;overflow:hidden;
+    color:var(--fg);white-space:pre;tab-size:2;min-height:240px;
+    transition:opacity .2s ease, height .34s cubic-bezier(.4,0,.2,1)}
+  pre.screen.fading{opacity:0}
+  .vig{max-width:600px;margin:20px auto 0;text-align:center}
+  .cap{color:var(--dim);font-size:15px;line-height:1.55;min-height:48px;text-wrap:pretty;transition:opacity .22s ease}
+  .cap.fading{opacity:0}
+  .dots{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .dot{width:7px;height:7px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--faint);transition:.2s}
+  .dot.on{background:var(--accent);transform:scale(1.3)}
+  .dot:hover{background:var(--dim)}
+
+  /* feature trio */
+  .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:54px 0 10px}
+  .feat h3{font-size:15px;font-weight:500;margin-bottom:5px;display:flex;align-items:center;gap:8px}
+  .feat p{font-size:14px;color:var(--dim);line-height:1.55}
+  .feat .g{font-family:var(--mono)}
+
+  footer{border-top:1px solid var(--line);margin-top:60px;padding:26px 0 50px;
+    display:flex;align-items:center;justify-content:space-between;color:var(--faint);font-size:13px}
+  footer a:hover{color:var(--dim)}
+
+  @media(max-width:640px){
+    h1{font-size:32px} .sub{font-size:16px}
+    .feats{grid-template-columns:1fr;gap:22px}
+    pre.screen{font-size:11px}
+    header{padding:18px 0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="/"><img src="assets/zadar-icon.png" alt="zadar" /> zadar</a>
+    <a class="ghlink" href="https://github.com/0xMoaz/zadar" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </header>
+
+  <section class="hero">
+    <img class="mark" src="assets/zadar-icon.png" alt="zadar logo" />
+    <h1>Radar for your agent fleet.</h1>
+    <p class="sub">Running 4+ Claude Code &amp; Codex agents across worktrees? zadar answers, in one glance, <b>which agent needs you right now</b> — and shows the exact question it's blocked on.</p>
+
+    <div class="cta">
+      <div class="cmd">
+        <span><span class="pmt">$</span> bunx zadar</span>
+        <button id="copy" data-cmd="bunx zadar">copy</button>
+      </div>
+    </div>
+    <p class="alt">or, standalone macOS binary — curl -fsSL zee.gg/zadar/install.sh | bash</p>
+  </section>
+
+</div><!-- /.wrap -->
+
+  <div class="wrap-wide">
+  <div class="term" role="img" aria-label="A rotating set of zadar terminal vignettes: an agent blocked on a question, a finished session awaiting review, a dev server eating memory, and a calm fleet at rest">
+    <div class="bar"><i></i><i></i><i></i><span class="ti">zadar — ~/Code/zefleet</span></div>
+<pre class="screen" id="screen"></pre>
+  </div>
+  <div class="vig">
+    <p class="cap" id="vig-cap"></p>
+    <div class="dots" id="vig-dots" role="tablist" aria-label="demo scenes"></div>
+  </div>
+  </div><!-- /.wrap-wide -->
+  <script id="vig-data" type="application/json">[{"html":"  \u003cspan style=\"color:#e05252;font-weight:600\">zadar\u003c/span>\u003cspan style=\"color:#e6b450\">  ▲1\u003c/span>\u003cspan style=\"color:#6b7280\">  ●2\u003c/span>                                                               \u003cspan style=\"color:#6b7280\">$\u003c/span>7\u003cspan style=\"color:#6b7280\">.3/h · thu · 14:08\u003c/span>  \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n  \u003cspan style=\"color:#56b6c2\">▎\u003c/span>\u003cspan style=\"color:#6b7280\">  Needs you\u003c/span>                                                                             \u003cspan style=\"color:#6b7280\">1 item\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#e05252\">✻ \u003c/span>webapp/fix-auth\u003cspan style=\"color:#6a9589\"> · \u003c/span>\u003cspan style=\"color:#6b7280\">fix the auth redirect loop on the marketing pages\u003c/span>         \u003cspan style=\"color:#e05252\">waiting\u003c/span>\u003cspan style=\"color:#6b7280\"> · \u003c/span>\u003cspan style=\"color:#e05252\">8\u003c/span>\u003cspan style=\"color:#6b7280\">m\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>       “Should I overwrite the existing config at app/config.ts, or merge the new keys into     \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>       it?”                                                                                     \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#6b7280\">     \u003c/span>\u003cspan style=\"background:#262a30\"> 1 \u003c/span>\u003cspan style=\"color:#6b7280\"> Overwrite   \u003c/span>\u003cspan style=\"background:#262a30\"> 2 \u003c/span>\u003cspan style=\"color:#6b7280\"> Merge keys   \u003c/span>                                                        \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Sessions\u003c/span>                                                                \u003cspan style=\"color:#6b7280\">3 active · 1 waiting\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Servers\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">1 · 2.1GB\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Projects\u003c/span>                                                                 \u003cspan style=\"color:#6b7280\">6 · 3 dirty · $6.02\u003c/span>   \n                                                                                                    \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n                                                                                          \u003cspan style=\"background:#262a30\"> ? \u003c/span>\u003cspan style=\"color:#6b7280\"> help\u003c/span>  ","caption":"An agent hits a fork it can't take alone — zadar floats the exact question to the top, its options ready as ① ②."},{"html":"  \u003cspan style=\"color:#56b6c2;font-weight:600\">zadar\u003c/span>\u003cspan style=\"color:#7fb069\">  ◆1\u003c/span>\u003cspan style=\"color:#6b7280\">  ●2\u003c/span>                                                               \u003cspan style=\"color:#6b7280\">$\u003c/span>7\u003cspan style=\"color:#6b7280\">.3/h · thu · 14:08\u003c/span>  \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n  \u003cspan style=\"color:#56b6c2\">▎\u003c/span>\u003cspan style=\"color:#6b7280\">  Needs you\u003c/span>                                                                             \u003cspan style=\"color:#6b7280\">1 item\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#7fb069\">◆ \u003c/span>docs-site\u003cspan style=\"color:#6a9589\"> · \u003c/span>\u003cspan style=\"color:#6b7280\">write the getting-started guide\u003c/span>                                  \u003cspan style=\"color:#7fb069\">review\u003c/span>\u003cspan style=\"color:#6b7280\"> · \u003c/span>\u003cspan style=\"color:#7fb069\">3\u003c/span>\u003cspan style=\"color:#6b7280\">m\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#6b7280\">     review \u003c/span>\u003cspan style=\"color:#7fb069\">+214\u003c/span>\u003cspan style=\"color:#e05252\"> −38\u003c/span>\u003cspan style=\"color:#6b7280\"> across \u003c/span>9\u003cspan style=\"color:#6b7280\"> files\u003c/span>                                                           \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Sessions\u003c/span>                                                                  \u003cspan style=\"color:#6b7280\">3 active · 1 ready\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Servers\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">1 · 2.1GB\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Projects\u003c/span>                                                                 \u003cspan style=\"color:#6b7280\">6 · 3 dirty · $2.16\u003c/span>   \n                                                                                                    \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n                                                                                          \u003cspan style=\"background:#262a30\"> ? \u003c/span>\u003cspan style=\"color:#6b7280\"> help\u003c/span>  ","caption":"A session finishes and parks its diff — +214 −38 across 9 files. Review it on your time, not mid-flow."},{"html":"  \u003cspan style=\"color:#56b6c2;font-weight:600\">zadar\u003c/span>\u003cspan style=\"color:#6b7280\">  ●2\u003c/span>                                                                   \u003cspan style=\"color:#6b7280\">$\u003c/span>7\u003cspan style=\"color:#6b7280\">.3/h · thu · 14:08\u003c/span>  \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n  \u003cspan style=\"color:#56b6c2\">▎\u003c/span>\u003cspan style=\"color:#6b7280\">  Needs you\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">2 items\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#e05252\"> \u003c/span>webapp\u003cspan style=\"color:#6a9589\"> · \u003c/span>\u003cspan style=\"color:#6b7280\">:3000 holding 14GB of memory\u003c/span>                                             \u003cspan style=\"color:#e05252\">memory\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#e6b450\"> \u003c/span>api-gateway\u003cspan style=\"color:#6a9589\"> · \u003c/span>\u003cspan style=\"color:#6b7280\">:8787 worktree is gone — safe to kill\u003c/span>                                \u003cspan style=\"color:#e6b450\">stale\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Sessions\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">2 active\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Servers\u003c/span>                                                                   \u003cspan style=\"color:#6b7280\">3 · 17GB · 1 stale\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Projects\u003c/span>                                                                 \u003cspan style=\"color:#6b7280\">6 · 3 dirty · $2.12\u003c/span>   \n                                                                                                    \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n                                                                                          \u003cspan style=\"background:#262a30\"> ? \u003c/span>\u003cspan style=\"color:#6b7280\"> help\u003c/span>  ","caption":"Not just agents — a dev server eating 14GB or a stale worktree surfaces here too. Kill or prune without leaving."},{"html":"  \u003cspan style=\"color:#56b6c2;font-weight:600\">zadar\u003c/span>\u003cspan style=\"color:#6b7280\">  ●2\u003c/span>                                                                   \u003cspan style=\"color:#6b7280\">$\u003c/span>7\u003cspan style=\"color:#6b7280\">.3/h · thu · 14:08\u003c/span>  \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n  \u003cspan style=\"color:#56b6c2\">▎\u003c/span>\u003cspan style=\"color:#6b7280\">  Needs you\u003c/span>                                                                              \u003cspan style=\"color:#6b7280\">clear\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#7fb069\"> \u003c/span>\u003cspan style=\"color:#6b7280\">nothing needs you\u003c/span>                                                                           \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▾ Sessions\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">2 active\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan class=\"spin\">⠋\u003c/span> zefleet\u003cspan style=\"color:#6a9589\">  \u003c/span>\u003cspan style=\"color:#6b7280\">main  ×2\u003c/span>                                     \u003cspan style=\"color:#6b7280\">▃▄▆▃▂▁▃▆█▆▇▅  \u003c/span>\u003cspan style=\"color:#e6b450\">▰▰▰▰\u003c/span>\u003cspan style=\"color:#3b4048\">▱▱\u003c/span> \u003cspan style=\"color:#6b7280\"> \u003c/span>\u003cspan style=\"color:#e6b450\">71\u003c/span>\u003cspan style=\"color:#6b7280\">% \u003c/span> \u003cspan style=\"color:#6b7280\"> $\u003c/span>1\u003cspan style=\"color:#6b7280\">.24\u003c/span>   \n   \u003cspan style=\"color:#3b4048\">│\u003c/span>  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">● \u003c/span>api-gateway\u003cspan style=\"color:#6a9589\">  \u003c/span>\u003cspan style=\"color:#6b7280\">feat/rate-limit\u003c/span>                          \u003cspan style=\"color:#6b7280\">▁▁█▁▁▁█▁▁▁▁█  ▰▰\u003c/span>\u003cspan style=\"color:#3b4048\">▰▰▰▱\u003c/span> \u003cspan style=\"color:#6b7280\"> \u003c/span>38\u003cspan style=\"color:#6b7280\">%⟳\u003c/span> \u003cspan style=\"color:#6b7280\"> $\u003c/span>0\u003cspan style=\"color:#6b7280\">.88\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Servers\u003c/span>                                                                            \u003cspan style=\"color:#6b7280\">1 · 2.1GB\u003c/span>   \n  \u003cspan style=\"color:#56b6c2\"> \u003c/span>\u003cspan style=\"color:#6b7280\">▸ \u003c/span>\u003cspan style=\"font-weight:600\">Projects\u003c/span>                                                                 \u003cspan style=\"color:#6b7280\">6 · 3 dirty · $2.12\u003c/span>   \n                                                                                                    \n  \u003cspan style=\"color:#3b4048\">────────────────────────────────────────────────────────────────────────────────────────────────\u003c/span>  \n                                                                                          \u003cspan style=\"background:#262a30\"> ? \u003c/span>\u003cspan style=\"color:#6b7280\"> help\u003c/span>  ","caption":"When nothing's blocked, zadar goes quiet — just your fleet's pulse: who's working, context left, spend."}]</script>
+
+  <div class="wrap">
+
+  <section class="feats">
+    <div class="feat">
+      <h3><span class="g am">▲</span> Urgency first</h3>
+      <p>The agent blocked on you floats to the top, with the literal question and its answer chips — decide without switching windows.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="g ac">⠋</span> Truthful signal</h3>
+      <p>Motion never lies. The work-glyph spins only while the transcript advances; context %, cost, and an EKG of real activity ride alongside.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="g gr">◆</span> One calm scope</h3>
+      <p>Every Claude Code &amp; Codex session, dev server, and git worktree — on one always-open split. Kill stale servers, prune worktrees, never leave.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2026 <a href="https://zee.gg">zee</a> · MIT</span>
+    <span><a href="https://github.com/0xMoaz/zadar">github.com/0xMoaz/zadar</a></span>
+  </footer>
+
+</div>
+
+<script>
+  // rotating vignettes — each an exact capture of the real TUI on a curated fleet
+  (function(){
+    var V; try { V = JSON.parse(document.getElementById("vig-data").textContent); } catch(e){ V = []; }
+    var screen=document.getElementById("screen"), cap=document.getElementById("vig-cap"), dots=document.getElementById("vig-dots");
+    if(!V.length){ return; }
+    var i=-1, timer, DWELL=4600, FADE=220;
+    dots.innerHTML = V.map(function(_,k){ return '<button class="dot" role="tab" data-k="'+k+'" aria-label="scene '+(k+1)+'"></button>'; }).join("");
+    var dotEls = [].slice.call(dots.children);
+    function show(k){
+      if(k===i) return;
+      screen.classList.add("fading"); cap.classList.add("fading");
+      setTimeout(function(){
+        i=k;
+        var oldH=screen.offsetHeight;          // current explicit height
+        screen.innerHTML=V[i].html;
+        screen.style.height="auto"; var newH=screen.offsetHeight;   // natural height of new scene
+        screen.style.height=oldH+"px"; screen.offsetHeight;         // reset + force reflow
+        screen.style.height=newH+"px";         // → CSS transition animates the breathe
+        cap.textContent=V[i].caption;
+        dotEls.forEach(function(d,j){ d.classList.toggle("on", j===i); d.setAttribute("aria-selected", j===i); });
+        screen.classList.remove("fading"); cap.classList.remove("fading");
+      }, FADE);
+    }
+    function play(){ timer=setInterval(function(){ show((i+1)%V.length); }, DWELL); }
+    dots.addEventListener("click", function(e){
+      var k=e.target.getAttribute("data-k"); if(k==null) return;
+      clearInterval(timer); show(+k); play();
+    });
+    show(0); play();
+    // the braille work-glyph spins ~120ms on whichever frame is showing
+    var W=["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"], si=0;
+    setInterval(function(){ var s=screen.querySelector(".spin"); if(s) s.textContent=W[si=(si+1)%W.length]; }, 120);
+  })();
+  // copy install command
+  (function(){
+    var b=document.getElementById("copy");
+    b.addEventListener("click",function(){
+      navigator.clipboard.writeText(b.dataset.cmd).then(function(){
+        var t=b.textContent;b.textContent="copied";setTimeout(function(){b.textContent=t},1400);
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+@font-face {
+  font-family: "ZadarSymbols";
+  src: url("../assets/zadar-symbols.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --bg: oklch(0.09 0.006 255);
+  --panel: oklch(0.135 0.008 255);
+  --line: oklch(0.33 0.015 252.3);
+  --term-mono: "JetBrains Mono", "ZadarSymbols", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+body {
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background-image: radial-gradient(1200px 600px at 50% -10%, oklch(0.716 0.137 258.3 / 0.04), transparent 70%);
+}
