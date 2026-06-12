@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs"
+import { join } from "node:path"
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import { App } from "./App"
@@ -8,9 +10,30 @@ import { mockSnapshot } from "./mock"
 import { loadToday } from "./history"
 import { installKind, INSTALLER_URL, VERSION } from "./update"
 
-// A dashboard should never die on a stray async error — keep rendering.
-process.on("unhandledRejection", () => {})
-process.on("uncaughtException", () => {})
+// A dashboard should never die on a stray async error — keep rendering, but
+// leave a trace so "it shows nothing" reports are diagnosable after the fact.
+const ERR_LOG = join(process.env.HOME ?? "", ".zadar", "errors.log")
+try {
+  // rotate at launch so the cap below never silences logging permanently
+  if (statSync(ERR_LOG).size > 256 * 1024) renameSync(ERR_LOG, `${ERR_LOG}.1`)
+} catch {
+  /* nothing to rotate */
+}
+const logSwallowed = (kind: string) => (e: unknown) => {
+  try {
+    if (statSync(ERR_LOG).size > 256 * 1024) return // capped until the next launch rotates
+  } catch {
+    /* not there yet */
+  }
+  try {
+    mkdirSync(join(ERR_LOG, ".."), { recursive: true })
+    appendFileSync(ERR_LOG, `${new Date().toISOString()} ${kind}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`)
+  } catch {
+    /* logging is best-effort, never fatal */
+  }
+}
+process.on("unhandledRejection", logSwallowed("unhandledRejection"))
+process.on("uncaughtException", logSwallowed("uncaughtException"))
 
 const argv = process.argv.slice(2)
 

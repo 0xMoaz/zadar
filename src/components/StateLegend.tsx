@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { RGBA } from "@opentui/core"
 import type { AgentStatus } from "../types"
 import { color, statusGlyph } from "../theme"
@@ -24,7 +25,7 @@ const GROUPS: Entry[][] = [
  * in the fleet shows in its color, an empty one fades to faint, so it doubles as an
  * ambient mirror of what's live without repeating the header's counts.
  */
-export function StateLegend({ present }: { present: Set<AgentStatus> }) {
+export const StateLegend = memo(function StateLegend({ present }: { present: Set<AgentStatus> }) {
   return (
     <text>
       {GROUPS.map((group, gi) => (
@@ -40,4 +41,4 @@ export function StateLegend({ present }: { present: Set<AgentStatus> }) {
       ))}
     </text>
   )
-}
+})

@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { DevServer } from "../types"
 import { color, glyph, icon, projectHue, serverMemColor } from "../theme"
@@ -5,7 +6,7 @@ import { clip, fmtMem, shorten } from "../format"
 import { Stat } from "./Stat"
 
 /** One dev server: a calm one-liner; Enter discloses where it lives. */
-export function ServerCard({
+export const ServerCard = memo(function ServerCard({
   server,
   selected = false,
   expanded = false,
@@ -60,4 +61,4 @@ export function ServerCard({
       )}
     </box>
   )
-}
+})

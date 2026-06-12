@@ -1,8 +1,9 @@
 import { readdirSync, statSync, openSync, readSync, closeSync } from "node:fs"
 import { join } from "node:path"
 import { costOf, type Usage } from "./pricing"
-import { inferStatus, lastSaidOf, lastToolOf, stripMd, taskOf, toolLabel } from "./status"
+import { inferStatus, lastSaidOf, lastToolOf, snippet, taskOf, toolLabel } from "./status"
 import { parseTail, tailText } from "./jsonl"
+import { SessionCache } from "./cache"
 import { rhythmOf } from "../signal"
 import type { AgentStatus, WaitKind } from "../types"
 
@@ -51,28 +52,52 @@ const supports1M = (model: string): boolean => {
 export const windowFor = (model: string) =>
   /\[1m\]/i.test(model) || supports1M(model) ? 1_000_000 : 200_000
 
+// which .jsonl is live changes rarely — re-sweep the dir (a stat per entry)
+// only every few seconds; between sweeps stat just the chosen file, so the
+// live signals stay tick-fresh. A newer session is picked up within PICK_TTL.
+const PICK_TTL = 5_000
+const pickCache = new SessionCache<string, { path: string; id: string; pickedAt: number }>()
+
 export function activeSession(
   cwd: string,
   resumeId?: string,
+  nowMs = Date.now(),
 ): { path: string; mtimeMs: number; id: string } | null {
   const dir = projectDir(cwd)
+  if (resumeId) {
+    try {
+      const p = join(dir, `${resumeId}.jsonl`)
+      return { path: p, mtimeMs: statSync(p).mtimeMs, id: resumeId }
+    } catch {
+      /* resume target missing — fall through to the sweep */
+    }
+  }
+  const hit = pickCache.get(dir, nowMs)
+  if (hit && nowMs - hit.pickedAt < PICK_TTL) {
+    try {
+      return { path: hit.path, mtimeMs: statSync(hit.path).mtimeMs, id: hit.id }
+    } catch {
+      /* vanished — re-sweep */
+    }
+  }
   let entries: string[]
   try {
     entries = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
   } catch {
     return null
   }
-  if (entries.length === 0) return null
-  if (resumeId && entries.includes(`${resumeId}.jsonl`)) {
-    const p = join(dir, `${resumeId}.jsonl`)
-    return { path: p, mtimeMs: statSync(p).mtimeMs, id: resumeId }
-  }
   let best: { path: string; mtimeMs: number; id: string } | null = null
   for (const f of entries) {
     const p = join(dir, f)
-    const mt = statSync(p).mtimeMs
+    let mt: number
+    try {
+      mt = statSync(p).mtimeMs
+    } catch {
+      continue
+    }
     if (!best || mt > best.mtimeMs) best = { path: p, mtimeMs: mt, id: f.replace(/\.jsonl$/, "") }
   }
+  if (best) pickCache.set(dir, { path: best.path, id: best.id, pickedAt: nowMs }, nowMs)
   return best
 }
 
@@ -84,10 +109,15 @@ interface CostState {
   cost: number
   seen: Set<string>
 }
-const costCache = new Map<string, CostState>()
+const costCache = new SessionCache<string, CostState>()
 
-export function accrueCost(path: string, fallbackModel: string, mtimeMs: number): { tokens: number; cost: number } {
-  let st = costCache.get(path)
+export function accrueCost(
+  path: string,
+  fallbackModel: string,
+  mtimeMs: number,
+  nowMs = Date.now(),
+): { tokens: number; cost: number } {
+  let st = costCache.get(path, nowMs)
   if (st && st.mtimeMs === mtimeMs) return { tokens: st.tokens, cost: st.cost }
   const size = statSync(path).size
   if (!st || size < st.offset) st = { offset: 0, mtimeMs: 0, tokens: 0, cost: 0, seen: new Set() }
@@ -128,14 +158,12 @@ export function accrueCost(path: string, fallbackModel: string, mtimeMs: number)
       st.offset += consumed
     }
     st.mtimeMs = mtimeMs
-    costCache.set(path, st)
+    costCache.set(path, st, nowMs)
     return { tokens: st.tokens, cost: st.cost }
   } finally {
     closeSync(fd)
   }
 }
-
-const snippet = (t: string) => stripMd(t).replace(/\s+/g, " ").trim().slice(0, 70)
 
 function activityLines(tail: any[]): string[] {
   const lines: string[] = []
@@ -154,8 +182,17 @@ function activityLines(tail: any[]): string[] {
 }
 
 // the anchoring prompt can scroll out of the 96KB tail during long agentic
-// turns — once seen (or dug up via a one-time deep read), remember it
-const taskCache = new Map<string, string>()
+// turns — once seen (or dug up via a deep read), remember it. A dig that finds
+// nothing retries on a slow TTL: the prompt may not have been typed yet, and it
+// can leave the 96KB tail within one poll (big tool results), so a one-shot
+// dig could blank the task line for the whole session
+const TASK_DIG_TTL = 10_000
+const taskCache = new SessionCache<string, string>()
+const taskDugAt = new SessionCache<string, number>()
+
+// the tail re-parses only when the file actually changed (ARCHITECTURE §5) —
+// time-derived inference (idleSec, status, rhythm) still recomputes every tick
+const tailCache = new SessionCache<string, { mtimeMs: number; tail: any[] }>()
 
 export function parseClaude(
   cwd: string,
@@ -163,16 +200,28 @@ export function parseClaude(
   resumeId: string | undefined,
   nowMs: number,
 ): ClaudeSignals | null {
-  const sess = activeSession(cwd, resumeId)
+  const sess = activeSession(cwd, resumeId, nowMs)
   if (!sess) return null
-  const tail = parseTail(tailText(sess.path))
+  let entry = tailCache.get(sess.path, nowMs)
+  if (!entry || entry.mtimeMs !== sess.mtimeMs) {
+    entry = { mtimeMs: sess.mtimeMs, tail: parseTail(tailText(sess.path)) }
+    tailCache.set(sess.path, entry, nowMs)
+  }
+  const tail = entry.tail
 
   let task = taskOf(tail)
-  if (!task && !taskCache.has(sess.id)) {
-    task = taskOf(parseTail(tailText(sess.path, 1024 * 1024))) // cold start: dig once
+  if (task) taskCache.set(sess.id, task, nowMs)
+  else {
+    task = taskCache.get(sess.id, nowMs)
+    if (!task) {
+      const dugAt = taskDugAt.get(sess.id, nowMs)
+      if (dugAt === undefined || nowMs - dugAt > TASK_DIG_TTL) {
+        task = taskOf(parseTail(tailText(sess.path, 1024 * 1024)))
+        if (task) taskCache.set(sess.id, task, nowMs)
+        else taskDugAt.set(sess.id, nowMs, nowMs)
+      }
+    }
   }
-  if (task) taskCache.set(sess.id, task)
-  else task = taskCache.get(sess.id)
   // recency by real activity, not file mtime: resuming an old session rewrites the
   // file (summary/snapshot markers) with no real turn, which would otherwise make a
   // day-old session read as "just finished". Anchor on the last genuine user/assistant
@@ -213,7 +262,7 @@ export function parseClaude(
   const acts = activityLines(tail)
   const lastActivity =
     inferred.waitKind === "question" ? "AskUserQuestion" : (inferred.question ?? acts[0] ?? "—")
-  const { tokens, cost } = accrueCost(sess.path, transcriptModel, sess.mtimeMs)
+  const { tokens, cost } = accrueCost(sess.path, transcriptModel, sess.mtimeMs, nowMs)
 
   return {
     sessionId: sess.id,

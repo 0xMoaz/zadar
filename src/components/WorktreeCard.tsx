@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { RepoWorktrees, WorktreeItem } from "../types"
 import { color, glyph, icon, projectHue } from "../theme"
@@ -38,7 +39,7 @@ export function WorktreeCard({
 }
 
 /** One worktree inside a drilled-open repo: name · branch ... state · age. */
-export function WorktreeItemRow({
+export const WorktreeItemRow = memo(function WorktreeItemRow({
   item,
   repo,
   selected = false,
@@ -76,4 +77,4 @@ export function WorktreeItemRow({
       </text>
     </box>
   )
-}
+})

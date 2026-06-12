@@ -48,6 +48,9 @@ const squish = (t: string, max: number) => {
   return s.length > max ? s.slice(0, max - 1) + "…" : s
 }
 
+/** a one-line activity preview: markdown stripped, whitespace squished, hard-clipped */
+export const snippet = (t: string) => stripMd(t).replace(/\s+/g, " ").trim().slice(0, 70)
+
 /**
  * The task: the user's last typed prompt — the anchor that answers "what is
  * this session for?". Typed prompts are user events with STRING content;

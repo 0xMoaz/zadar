@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import type { Agent } from "../types"
 import { color, icon, rail } from "../theme"
 import { clip, fmtDuration } from "../format"
@@ -12,7 +12,7 @@ import { Stat } from "./Stat"
  * sessions, not in a decision, so it stays out of here. The task and the ask
  * itself are already on the queue row above, so they aren't repeated.
  */
-export function QueueDetail({ agent, width }: { agent: Agent; width: number }) {
+export const QueueDetail = memo(function QueueDetail({ agent, width }: { agent: Agent; width: number }) {
   const textW = Math.max(20, width - rail.branch.length - 2)
   const rows: ReactNode[] = []
 
@@ -44,4 +44,4 @@ export function QueueDetail({ agent, width }: { agent: Agent; width: number }) {
       ))}
     </box>
   )
-}
+})

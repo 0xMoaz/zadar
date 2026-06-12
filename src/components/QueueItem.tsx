@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { AttentionItem } from "../fleetmap"
 import { color, glyph, projectHue, spinnerFrame, waitColor } from "../theme"
@@ -58,7 +59,7 @@ function AgeLabel({ item, c }: { item: AttentionItem; c: RGBA }) {
  * to switch), then state the ask / failure / review beneath. Server items
  * stay one calm line.
  */
-export function QueueItem({
+export const QueueItem = memo(function QueueItem({
   item,
   selected,
   width,
@@ -145,4 +146,4 @@ export function QueueItem({
       )}
     </box>
   )
-}
+})

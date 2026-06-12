@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { ProjectGroup } from "../fleetmap"
 import type { AgentStatus } from "../types"
@@ -11,7 +12,7 @@ const STATUS_ORDER: AgentStatus[] = ["waiting", "error", "ready", "working", "un
  * One project as a single entity: worst-case glyph, what it's made of
  * (agents by state · server ports · trees), and what it costs.
  */
-export function ProjectCard({
+export const ProjectCard = memo(function ProjectCard({
   group,
   selected,
   expanded,
@@ -80,4 +81,4 @@ export function ProjectCard({
       </text>
     </box>
   )
-}
+})
