@@ -38,6 +38,9 @@ bunx zadar                     # zero-install try
 bun add -g zadar               # keep it
 ```
 
+Then just run `zadar` (the curl installer adds it to your PATH — open a new
+terminal once). `q` quits, `?` shows the keymap, `zadar upgrade` updates.
+
 First run installs the bundled **Zadar Mark** font (the header logo) into your
 user fonts — restart your terminal once and the wordmark wears it. No terminal
 configuration needed: the mark sits at a private-use codepoint (U+E100) that

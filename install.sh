@@ -47,10 +47,25 @@ chmod +x "$INSTALL_DIR/zadar"
 echo "✓ installed  $INSTALL_DIR/zadar  ($("$INSTALL_DIR/zadar" --version))"
 
 case ":$PATH:" in
-  *":$INSTALL_DIR:"*) ;;
+  *":$INSTALL_DIR:"*)
+    echo "→ run it:  zadar"
+    ;;
   *)
-    echo
-    echo "add it to your PATH:"
-    echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
+    line="export PATH=\"$INSTALL_DIR:\$PATH\""
+    rc=""
+    case "${SHELL:-}" in
+      */zsh) rc="$HOME/.zshrc" ;;
+      */bash) rc="$HOME/.bashrc" ;;
+    esac
+    if [ -n "$rc" ] && ! grep -qsF "$line" "$rc"; then
+      printf '\n# zadar\n%s\n' "$line" >>"$rc"
+      echo "✓ PATH updated in ${rc/#"$HOME"/\~}"
+      echo
+      echo "→ open a new terminal (or: source ${rc/#"$HOME"/\~}) and run:  zadar"
+    else
+      echo
+      echo "add it to your PATH, then run \`zadar\`:"
+      echo "  $line"
+    fi
     ;;
 esac
