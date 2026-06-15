@@ -135,3 +135,42 @@ export function attentionQueue(snap: Snapshot): AttentionItem[] {
   // most urgent class first; within a class, the longest-waiting first
   return items.sort((x, y) => x.severity - y.severity || y.ageSec - x.ageSec)
 }
+
+// ── seen-acknowledgment: reviews you've already gone to ──────────────────────
+// A `ready` item is inferred from a finished transcript turn — it can't tell
+// whether you've looked. Going to a session (o/⏎/click) is the "I reviewed it"
+// signal: ack it against the turn it finished on (keyed by id, stamped with the
+// turn's signature) and drop its review from the queue. The ack suppresses ONLY
+// that turn — a new finished turn carries a fresh signature and resurfaces on its
+// own, even if the session never leaves `ready` between the two. A reply (status
+// leaves `ready`) or a timeout releases it too.
+
+/** when this session's transcript last advanced, in epoch ms — the turn's identity */
+export const turnSig = (a: Pick<Agent, "idleSec">, nowMs: number): number => nowMs - a.idleSec * 1000
+
+// idleSec is sampled once per poll, so the signature drifts by up to one poll
+// between ack-time and read-time; a few seconds of slack absorbs that without ever
+// spanning the gap a genuinely new turn opens up
+const SEEN_SLACK_MS = 5_000
+
+/** has this ready session been seen on its CURRENT turn? */
+export function isSeen(a: Agent, seen: Map<string, number>, nowMs: number): boolean {
+  const at = seen.get(a.id)
+  return at !== undefined && Math.abs(turnSig(a, nowMs) - at) <= SEEN_SLACK_MS
+}
+
+/** hide reviews you've already seen on their current turn */
+export function suppressAcked(items: AttentionItem[], seen: Map<string, number>, nowMs: number): AttentionItem[] {
+  if (seen.size === 0) return items
+  return items.filter((it) => !(it.kind === "ready" && it.agent && isSeen(it.agent, seen, nowMs)))
+}
+
+/** keep only acks that still match a `ready` session on the turn they were made;
+ * a reply (status leaves ready) or a new turn (signature moves) releases them */
+export function pruneAcks(seen: Map<string, number>, agents: Agent[], nowMs: number): Map<string, number> {
+  if (seen.size === 0) return seen
+  const next = new Map<string, number>()
+  for (const a of agents) if (a.status === "ready" && isSeen(a, seen, nowMs)) next.set(a.id, seen.get(a.id)!)
+  // preserve identity when nothing changed — keeps React from re-rendering
+  return next.size === seen.size ? seen : next
+}
