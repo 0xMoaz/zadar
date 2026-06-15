@@ -50,7 +50,8 @@ Then open a new terminal and run:
 zadar
 ```
 
-`q` quits · `?` shows the keymap · `zadar upgrade` updates in place.
+`q` quits · `?` shows the keymap. zadar auto-updates on launch (the new version
+applies next open); `zadar upgrade` forces it, `ZADAR_NO_AUTO_UPDATE=1` opts out.
 
 ## The view
 

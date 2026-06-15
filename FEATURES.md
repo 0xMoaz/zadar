@@ -96,9 +96,13 @@ Build whatever surface you like on top; zadar stays a terminal.
 
 ## Self-maintaining
 
-- `zadar upgrade` updates in place, using whichever way you installed.
-- A faint `↑version` appears in the header when you're behind (checked
-  ambiently once a day, never blocking).
+- **Auto-updates on launch.** When a newer release is out, zadar pulls it in the
+  background (verified against the release checksum) and the new version runs the
+  next time you open it — your current session is never interrupted. The header
+  shows `↑version ready` once it's downloaded. Opt out with `ZADAR_NO_AUTO_UPDATE=1`;
+  dev checkouts and one-off `bunx` runs are never touched.
+- `zadar upgrade` forces it now; a faint `↑version` marks when you're behind
+  (checked ambiently once a day, never blocking).
 - State lives in `~/.zadar`. The header logo is a one-glyph font installed
   to `~/Library/Fonts/ZadarMark.ttf` on first run; terminals opened after
   that render it, and without it the header is plain text.

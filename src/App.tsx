@@ -18,7 +18,7 @@ import { color, glyph, icon, statusColor, statusGlyph, waitColor } from "./theme
 import { fmtCost, fmtDuration, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
-import { checkForUpdate, VERSION } from "./update"
+import { checkForUpdate, pendingUpdate, updateChannel, VERSION } from "./update"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeItemRow } from "./components/WorktreeCard"
@@ -124,6 +124,10 @@ export function App({
   // reply resurfaces it (see suppressAcked / pruneAcks).
   const [seenReady, setSeenReady] = useState<Map<string, number>>(new Map())
   const [updateVer, setUpdateVer] = useState<string | null>(null)
+  // a newer release auto-pulled in the background — shown as "ready · restart to apply"
+  const [pending, setPending] = useState<string | null>(() => (live ? pendingUpdate() : null))
+  // whether this copy updates itself (a real binary / global install, not a dev checkout)
+  const autoUpdates = useMemo(() => live && !process.env.ZADAR_NO_AUTO_UPDATE && updateChannel() !== "none", [live])
   // the flight recorder outlives the process — reload today's story on boot
   const [events, setEvents] = useState<Transition[]>(() => (live ? loadToday(Date.now()) : []))
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -454,6 +458,8 @@ export function App({
         const s = await collect()
         if (!on) return
         setSnap(s)
+        // surface a background auto-update the moment it lands (cheap marker read)
+        if (autoUpdates) setPending(pendingUpdate())
         // on the first real snapshot, unfold active sessions if nothing needs you
         if (!booted.current) {
           booted.current = true
@@ -727,7 +733,11 @@ export function App({
           {!compact && workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
         </text>
         <text>
-          {updateVer && <span fg={color.faint}>{`${icon.up} ${updateVer}  `}</span>}
+          {pending ? (
+            <span fg={color.positive}>{`${icon.up} ${pending} ready  `}</span>
+          ) : updateVer ? (
+            <span fg={color.faint}>{`${icon.up} ${updateVer}  `}</span>
+          ) : null}
           {/* burn is the least urgent number and the prime collision source — drop it compact */}
           {!compact && fleetBurn >= 0.05 && (
             <span>
@@ -743,7 +753,7 @@ export function App({
       {/* middle — one scrolling accordion of collapsible sections */}
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
         {help ? (
-          <HelpOverlay version={VERSION} updateVer={updateVer} />
+          <HelpOverlay version={VERSION} updateVer={updateVer} pending={pending} autoUpdates={autoUpdates} />
         ) : log ? (
           <EventLog events={events} maxRows={height - 8} />
         ) : compact ? (
