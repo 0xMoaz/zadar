@@ -4,9 +4,10 @@ import { upgradeHint } from "../update"
 const ROWS: [string, string][] = [
   ["j / k   ↓ / ↑", "move selection"],
   ["g / G", "first / last row"],
-  ["⏎  or click", "go there — the session's app or terminal (queue item) / browser (server)"],
-  ["␣", "expand / collapse details (or fold a section)"],
-  ["← / →   h / l", "fold section · close / open details"],
+  ["⏎  or click", "go there (queue item / server) · else expand / collapse details"],
+  ["␣", "unfold / fold details (or fold a section)"],
+  ["← / →   h / l", "fold section · unfold / fold details"],
+  ["⇥  Tab", "switch band — compact / HUD view"],
   ["o", "open — the session's app or terminal (agent) / browser (server)"],
   ["c", "copy resume command (agent) / url (server)"],
   ["x", "kill agent or server (asks to confirm)"],
