@@ -67,6 +67,24 @@ in your agents.
 - Idle sessions fade with age; nothing flashes for attention it hasn't earned.
 - Polls at 1–2 Hz with mtime-cached parsing — effectively zero footprint.
 
+## Fits your window
+
+zadar reflows to whatever pane you give it — automatically, no flags.
+
+- **Roomy (≥ 75 cols)** — the full view: every section at once, each session's
+  vitals on the right, the state legend, and fleet burn in the header.
+- **Sticky / narrow (< 75 cols)** — a *radar scope* built for an always-on
+  peripheral pane (pin it across your workspaces). One **band** fills the pane;
+  the rest are tabs along the bottom — `Needs · Sessions · Servers · Projects`,
+  switched with `Tab`. Every item is one **signal line**: a colour-coded blip
+  for its state (pulsing while live), what it needs from you, and a clip of
+  context — press `←`/`→` (or `h`/`l`) to unfold its full detail in place, and
+  `o` (or `⏎`) to jump to the live session or server. The header keeps the
+  beacon + counts; the noise drops away.
+- **Tall windows breathe** — Needs and Sessions give each item a second line
+  with the full question or what it's working on right now; short windows
+  tighten back to one line each and scroll.
+
 ## Local data API
 
 `zadar --api [port]` serves the same truth as JSON on `127.0.0.1:7433`:
@@ -81,5 +99,6 @@ Build whatever surface you like on top; zadar stays a terminal.
 - `zadar upgrade` updates in place, using whichever way you installed.
 - A faint `↑version` appears in the header when you're behind (checked
   ambiently once a day, never blocking).
-- First run installs the zadar mark — the header logo — as a tiny font;
-  it appears after your next terminal restart, no configuration needed.
+- State lives in `~/.zadar`. The header logo is a one-glyph font installed
+  to `~/Library/Fonts/ZadarMark.ttf` on first run; terminals opened after
+  that render it, and without it the header is plain text.
