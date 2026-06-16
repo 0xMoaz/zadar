@@ -7,11 +7,19 @@ import { mockSnapshot } from "./mock"
 type Setup = Awaited<ReturnType<typeof testRender>>
 let current: Setup | null = null
 
-async function mount(width = 100, height = 40): Promise<Setup> {
-  const setup = await testRender(<App snapshot={mockSnapshot} live={false} />, { width, height })
+async function mount(width = 100, height = 40, snapshot = mockSnapshot): Promise<Setup> {
+  const setup = await testRender(<App snapshot={snapshot} live={false} />, { width, height })
   await setup.renderOnce()
   current = setup
   return setup
+}
+
+// a calm fleet: everyone working, servers healthy → the queue is clear, so the
+// compact view opens on Active sessions with the rest as distilled summaries
+const calmSnapshot = {
+  ...mockSnapshot,
+  agents: mockSnapshot.agents.filter((a) => a.status === "working" && a.contextPct < 90),
+  servers: mockSnapshot.servers.filter((s) => !s.stale && s.memKB < 4 * 1024 * 1024),
 }
 
 async function press(setup: Setup, ...keys: string[]) {
@@ -109,6 +117,75 @@ describe("the one view — urgency first", () => {
     const f = s.captureCharFrame()
     expect(f).toContain("api-gateway")
     expect(f).toContain("playground")
+  })
+})
+
+describe("compact form-factor — the radar scope", () => {
+  test("signal lines, not prose, under a band tab bar", async () => {
+    const s = await mount(44, 26)
+    const f = s.captureCharFrame()
+    expect(f).not.toContain("$7.3/h") // burn dropped from the beacon
+    expect(f).toContain("asks") // type word — what the ask needs from you
+    expect(f).toContain("review") // the ready item's type word
+    expect(f).toContain("switch") // the Tab band-switch hint (key reads "tab")
+    for (const t of ["Needs", "Sessions", "Servers", "Projects"]) expect(f).toContain(t) // every band is a tab
+    expect(f).not.toContain("⠋") // no working-session blips in the Needs band
+  })
+
+  test("Tab switches to the Sessions roster — branch + activity, not Needs framing", async () => {
+    const s = await mount(64, 34) // tall + wide enough for the two-line context to fit
+    await press(s, "TAB")
+    const f = s.captureCharFrame()
+    expect(f).toContain("⠋") // a working session's live braille blip
+    expect(f).toContain("feat/rate-limit") // the roster leads with where the session lives
+    expect(f).toContain("run bun test") // and what it's doing — both on the card
+    expect(f).not.toContain("review") // the Needs-style type-word is gone from the roster
+    expect(f).not.toContain("holding") // the Needs-only server-mem item is absent
+  })
+
+  test("⏎ discloses an item's detail in place (fold)", async () => {
+    const s = await mount(44, 30)
+    await press(s, "TAB", "RETURN") // Sessions band, disclose the first session
+    const f = s.captureCharFrame()
+    expect(f).toContain("tok") // the disclosed vitals line (model · tokens · cost)
+  })
+
+  test("← / → (h/l) expand and collapse a signal's detail, same as the full view", async () => {
+    const s = await mount(44, 30)
+    await press(s, "TAB", "l") // Sessions band, open the first session's detail
+    expect(s.captureCharFrame()).toContain("tok")
+    await press(s, "h") // and fold it back
+    expect(s.captureCharFrame()).not.toContain("tok")
+  })
+
+  test("opens on the Sessions lens when the queue is clear", async () => {
+    const s = await mount(44, 24, calmSnapshot)
+    const f = s.captureCharFrame()
+    expect(f).toContain("zadar")
+    expect(f).not.toContain("▲") // calm fleet — no escalation counts on the beacon
+    expect(f).toContain("edit components") // a working session's activity fills the lens
+  })
+
+  test("a tall window gives Needs items a full second context line", async () => {
+    const s = await mount(64, 34)
+    // the question wraps onto its own line instead of being clipped onto the signal
+    expect(s.captureCharFrame()).toContain("merge the new keys into it")
+  })
+
+  test("a short window collapses back to single signal lines", async () => {
+    const s = await mount(64, 18)
+    // no room for two-line blocks — context clips back onto one line
+    expect(s.captureCharFrame()).not.toContain("merge the new keys into it")
+  })
+
+  test("i reveals the dormant session in the roster, and hides it again", async () => {
+    const s = await mount(44, 30)
+    await press(s, "TAB") // Sessions band
+    expect(s.captureCharFrame()).not.toContain("playground") // idle 52m — hidden past STALE_SEC
+    await press(s, "i")
+    expect(s.captureCharFrame()).toContain("playground") // brought back on demand
+    await press(s, "i")
+    expect(s.captureCharFrame()).not.toContain("playground") // toggles off again
   })
 })
 

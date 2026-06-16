@@ -4,8 +4,9 @@ import type { AgentStatus, WaitKind } from "../types"
 export const ACTIVE_SEC = 45
 /** a pending tool call older than this needs you (approval or hung) */
 export const APPROVAL_SEC = 120
-/** a finished turn stays "ready for review" this long */
-export const READY_SEC = 20 * 60
+/** a finished turn stays "ready for review" this long before it self-clears —
+ * short, because going to it (o/⏎) clears it sooner; this is the unseen fallback */
+export const READY_SEC = 5 * 60
 
 export interface InferredStatus {
   status: AgentStatus
@@ -31,6 +32,33 @@ export function toolLabel(b: any): string {
   arg = arg.slice(0, 46)
   return arg ? `${verb} ${arg}` : verb
 }
+
+// MCP tools whose whole purpose is to ask YOU for access / permission / sign-in.
+// They block on you the instant they're called, so they must not sit as "working"
+// until the hung-tool timeout — surface (and notify) them right away. Matched on the
+// exact action segment of mcp__<server>__<action> so look-alikes like
+// `request_access_token` (an OAuth fetch, no user gate) don't get falsely flagged.
+const PERMISSION_ACTIONS = new Set([
+  "request_access",
+  "request_teach_access",
+  "request_directory",
+  "authenticate",
+  "complete_authentication",
+])
+export const isPermissionRequest = (name: unknown): boolean =>
+  typeof name === "string" && PERMISSION_ACTIONS.has(name.split("__").pop() ?? name)
+
+/** a plain "needs <verb> · <server>" label for a permission / auth request tool */
+function permissionLabel(b: any): string {
+  const name = String(b?.name ?? "")
+  const server = name.startsWith("mcp__") ? name.split("__")[1] : undefined
+  const verb = /authenticat/i.test(name) ? "sign-in" : "access"
+  return server ? `needs ${verb} · ${server}` : "needs your permission"
+}
+
+// tools that genuinely execute for a while — a pending one means the agent is
+// working (a build, a test run, a dev server, a subagent), NOT blocked on you
+const isRunningTool = (name: unknown): boolean => name === "Bash" || name === "Task"
 
 const meaningful = (e: any) => e?.type === "user" || e?.type === "assistant"
 
@@ -149,8 +177,17 @@ export function inferStatus(tail: any[], idleSec: number): InferredStatus {
     }
   }
   if (pending.length > 0) {
-    if (idleSec <= APPROVAL_SEC) return { status: "working" }
-    return { status: "waiting", waitKind: "approval", question: toolLabel(pending[pending.length - 1]) }
+    // a permission / access / sign-in request blocks on you the moment it appears —
+    // don't wait out the hung-tool timeout before surfacing (and notifying) it
+    const perm = pending.find((b: any) => isPermissionRequest(b.name))
+    if (perm) return { status: "waiting", waitKind: "approval", question: permissionLabel(perm) }
+    // Bash/Task genuinely run (builds, test runs, dev servers, subagents) and routinely
+    // outlast APPROVAL_SEC — a pending one is the agent WORKING, not blocked on you. Only
+    // a NON-running tool left pending this long signals a permission gate or a hang.
+    const stuck = pending.filter((b: any) => !isRunningTool(b.name))
+    if (stuck.length > 0 && idleSec > APPROVAL_SEC)
+      return { status: "waiting", waitKind: "approval", question: toolLabel(stuck[stuck.length - 1]) }
+    return { status: "working" }
   }
 
   const last = tail[tail.length - 1]

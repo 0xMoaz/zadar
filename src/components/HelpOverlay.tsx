@@ -4,9 +4,10 @@ import { upgradeHint } from "../update"
 const ROWS: [string, string][] = [
   ["j / k   ↓ / ↑", "move selection"],
   ["g / G", "first / last row"],
-  ["⏎  or click", "go there — the session's app or terminal (queue item) / browser (server)"],
-  ["␣", "expand / collapse details (or fold a section)"],
-  ["← / →   h / l", "fold section · close / open details"],
+  ["⏎  or click", "go there (queue item / server) · else expand / collapse details"],
+  ["␣", "unfold / fold details (or fold a section)"],
+  ["← / →   h / l", "fold section · unfold / fold details"],
+  ["⇥  Tab", "switch band — compact / HUD view"],
   ["o", "open — the session's app or terminal (agent) / browser (server)"],
   ["c", "copy resume command (agent) / url (server)"],
   ["x", "kill agent or server (asks to confirm)"],
@@ -18,7 +19,19 @@ const ROWS: [string, string][] = [
   ["q", "quit"],
 ]
 
-export function HelpOverlay({ version, updateVer }: { version: string; updateVer?: string | null }) {
+export function HelpOverlay({
+  version,
+  updateVer,
+  pending,
+  autoUpdates,
+}: {
+  version: string
+  updateVer?: string | null
+  /** a newer release already pulled in the background — restart to run it */
+  pending?: string | null
+  /** this copy updates itself (binary / global install) vs. a manual upgrade */
+  autoUpdates?: boolean
+}) {
   return (
     <box
       flexGrow={1}
@@ -41,10 +54,15 @@ export function HelpOverlay({ version, updateVer }: { version: string; updateVer
       ))}
       <box paddingTop={1} flexDirection="column">
         <text fg={color.faint}>zadar v{version} · terminal mission control for parallel agents</text>
-        {updateVer ? (
+        {pending ? (
+          <text>
+            <span fg={color.positive}>↑ v{pending} downloaded</span>
+            <span fg={color.dim}>{"  ·  restart zadar to apply"}</span>
+          </text>
+        ) : updateVer ? (
           <text>
             <span fg={color.positive}>↑ v{updateVer} available</span>
-            <span fg={color.dim}>{`  ·  ${upgradeHint()}`}</span>
+            <span fg={color.dim}>{`  ·  ${autoUpdates ? "updating automatically…" : upgradeHint()}`}</span>
           </text>
         ) : null}
       </box>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { collect, emptySnapshot } from "./collect"
 import { invalidateWorktrees } from "./collectors/worktrees"
-import { attentionQueue, groupByProject, type AttentionItem, type ProjectGroup } from "./fleetmap"
+import { attentionQueue, groupByProject, isSeen, pruneAcks, suppressAcked, turnSig, type AttentionItem, type ProjectGroup } from "./fleetmap"
 import type { Agent, DevServer, RepoWorktrees, Snapshot, WorktreeItem } from "./types"
 import {
   copyResume,
@@ -14,11 +14,11 @@ import {
   pruneWorktree,
   resumeCommand,
 } from "./actions"
-import { color, glyph, icon } from "./theme"
-import { fmtMem } from "./format"
+import { color, glyph, icon, statusColor, statusGlyph, waitColor } from "./theme"
+import { fmtCost, fmtDuration, fmtMem } from "./format"
 import { diffTransitions, type Transition } from "./signal"
 import { appendEvents, loadToday } from "./history"
-import { checkForUpdate, VERSION } from "./update"
+import { checkForUpdate, pendingUpdate, updateChannel, VERSION } from "./update"
 import { AgentBlock } from "./components/AgentBlock"
 import { ServerCard } from "./components/ServerCard"
 import { WorktreeItemRow } from "./components/WorktreeCard"
@@ -32,6 +32,9 @@ import { HelpOverlay } from "./components/HelpOverlay"
 import { EventLog } from "./components/EventLog"
 import { StateLegend } from "./components/StateLegend"
 import { Stat } from "./components/Stat"
+import { SignalLine, type Signal } from "./components/SignalLine"
+import { SignalDetail } from "./components/SignalDetail"
+import { TabBar } from "./components/TabBar"
 import { TextAttributes } from "@opentui/core"
 
 // Hide only genuinely-dormant sessions. A session you touched recently — even if
@@ -46,7 +49,25 @@ const LABEL: Record<Section, string> = {
   sessions: "Active sessions",
   servers: "Servers",
 }
-
+// compact tier trims the labels too — every cell counts in a sticky HUD
+const LABEL_COMPACT: Record<Section, string> = {
+  queue: "Needs",
+  projects: "Projects",
+  sessions: "Sessions",
+  servers: "Servers",
+}
+// the compact lens order — Needs leads, the supporting cast follows
+const TABS: Section[] = ["queue", "sessions", "servers", "projects"]
+// what each needs-queue kind asks of you, in plain words (compact signal lines)
+const NEEDS_WORD: Record<AttentionItem["kind"], string> = {
+  question: "asks",
+  approval: "approve",
+  error: "failed",
+  ready: "review",
+  "server-mem": "memory",
+  "server-stale": "stale",
+  "ctx-high": "context",
+}
 type Row =
   | { sid: string; kind: "header"; section: Section }
   | { sid: string; kind: "queue"; section: Section; item: AttentionItem }
@@ -87,12 +108,26 @@ export function App({
     ...initialOpen,
   }))
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
+  // compact tier: which lens fills the pane. Needs leads, unless the queue is clear.
+  const [tab, setTab] = useState<Section>(() =>
+    snapshot && attentionQueue(snapshot).length === 0 ? "sessions" : "queue",
+  )
   const [confirm, setConfirm] = useState<{ label: string; run: () => void } | null>(null)
   const [toast, setToast] = useState("")
   const [help, setHelp] = useState(false)
   const [log, setLog] = useState(false)
   const [notifyOn, setNotifyOn] = useState(true)
+  // reveal sessions that have gone dormant past STALE_SEC (hidden by default); `i`
+  const [showIdle, setShowIdle] = useState(false)
+  // reviews you've already gone to, keyed by id → the turn signature you saw.
+  // Suppressed from the Needs queue + ◆ count for that turn only; a new turn or a
+  // reply resurfaces it (see suppressAcked / pruneAcks).
+  const [seenReady, setSeenReady] = useState<Map<string, number>>(new Map())
   const [updateVer, setUpdateVer] = useState<string | null>(null)
+  // a newer release auto-pulled in the background — shown as "ready · restart to apply"
+  const [pending, setPending] = useState<string | null>(() => (live ? pendingUpdate() : null))
+  // whether this copy updates itself (a real binary / global install, not a dev checkout)
+  const autoUpdates = useMemo(() => live && !process.env.ZADAR_NO_AUTO_UPDATE && updateChannel() !== "none", [live])
   // the flight recorder outlives the process — reload today's story on boot
   const [events, setEvents] = useState<Transition[]>(() => (live ? loadToday(Date.now()) : []))
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -108,6 +143,7 @@ export function App({
     visibleAgents,
     waiting,
     ready,
+    reviewN,
     errorN,
     workingN,
     worstWait,
@@ -120,13 +156,18 @@ export function App({
     presentStates,
     spinning,
   } = useMemo(() => {
-    const visibleAgents = snap.agents.filter(isActive)
-    const queue = attentionQueue(snap)
+    const now = Date.now()
+    const visibleAgents = snap.agents.filter((a) => showIdle || isActive(a))
+    // the Needs queue reflects what's UNseen — drop reviews you've gone to this turn
+    const queue = suppressAcked(attentionQueue(snap), seenReady, now)
     return {
       idleCount: snap.agents.length - visibleAgents.length,
       visibleAgents,
       waiting: snap.agents.filter((a) => a.status === "waiting").length,
+      // `ready` is the roster's truth (Sessions summary); `reviewN` is what still
+      // needs review (the ◆ beacon) — a session you've seen drops from reviewN only
       ready: snap.agents.filter((a) => a.status === "ready").length,
+      reviewN: snap.agents.filter((a) => a.status === "ready" && !isSeen(a, seenReady, now)).length,
       errorN: snap.agents.filter((a) => a.status === "error").length,
       workingN: snap.agents.filter((a) => a.status === "working").length,
       worstWait: Math.max(0, ...snap.agents.filter((a) => a.status === "waiting").map((a) => a.idleSec)),
@@ -141,9 +182,15 @@ export function App({
         queue.some((i) => i.kind === "question" || i.kind === "approval") ||
         snap.agents.some((a) => a.status === "working" && a.idleSec <= 3),
     }
-  }, [snap])
+  }, [snap, showIdle, seenReady])
   // the chrome reports the worst case — the wordmark is readable from across the room
   const beacon = errorN > 0 || worstWait > 300 ? color.danger : waiting > 0 ? color.attention : color.accent
+
+  // release acks whose session left `ready` or advanced to a new turn, so a fresh
+  // finished turn surfaces again (also bounds the map to live, ready sessions)
+  useEffect(() => {
+    setSeenReady((prev) => pruneAcks(prev, snap.agents, Date.now()))
+  }, [snap])
 
   // one shared ticker — the sparkle (needs-you) and the braille work-glyph both
   // ride it. Runs only while something is genuinely in motion: a pending ask, or
@@ -159,9 +206,26 @@ export function App({
   const cardWidth = Math.max(36, width - 7)
   const dense = height < 24
   const short = height < 14
+  // the radar scope, not a readout: one lens fills the pane, each thing is a
+  // single signal line, the rest are tabs. Auto, width-driven. The seam sits at
+  // 75 — just above where the accordion degrades (drops branch names + ctx bars,
+  // headers wrap) — so the scope owns the whole narrow-to-medium band and hands
+  // off to the rich accordion only when there's genuine room.
+  const compact = width < 75
 
-  // flattened, navigable rows — one view: urgency first, then the world
+  // the rows of a single lens — used by the compact tier and its tab switcher
+  const buildSectionRows = (s: Section): Row[] => {
+    if (s === "queue") return queue.map((it): Row => ({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
+    if (s === "sessions")
+      return visibleAgents.map((a): Row => ({ sid: `a-${a.id}`, kind: "agent", section: "sessions", agent: a }))
+    if (s === "servers")
+      return snap.servers.map((sv): Row => ({ sid: `s-${sv.pid}`, kind: "server", section: "servers", server: sv }))
+    return groups.map((g): Row => ({ sid: `pj-${g.key}`, kind: "project", section: "projects", group: g }))
+  }
+
+  // flattened, navigable rows — full: urgency first, then the world; compact: one lens
   const rows = useMemo<Row[]>(() => {
+    if (compact) return buildSectionRows(tab)
     const rows: Row[] = []
     rows.push({ sid: "h-queue", kind: "header", section: "queue" })
     if (open.queue) queue.forEach((it) => rows.push({ sid: `q-${it.id}`, kind: "queue", section: "queue", item: it }))
@@ -183,7 +247,7 @@ export function App({
         }
       })
     return rows
-  }, [queue, groups, visibleAgents, snap.servers, open, openRows])
+  }, [compact, tab, queue, groups, visibleAgents, snap.servers, open, openRows])
 
   // selection follows identity, not position — re-sorts never move it under you
   const found = rows.findIndex((r) => r.sid === selSid)
@@ -191,6 +255,14 @@ export function App({
   lastIdx.current = selIdx
   const cur = rows[selIdx]
   const curSid = cur?.sid
+
+  // compact vertical rhythm: Needs/Sessions earn a second context line when the
+  // window is tall enough for every item to fit; the list breathes when there's
+  // slack and tightens to single lines when crowded or short.
+  const bodyRows = Math.max(4, height - 8)
+  const compactTwoLine =
+    compact && (tab === "queue" || tab === "sessions") && !short && rows.length > 0 && rows.length * 3 < bodyRows
+  const compactGap = compact && rows.length > 0 && (compactTwoLine || rows.length * 2 <= bodyRows) ? 1 : 0
 
   const summaryFor = (s: Section): string => {
     if (s === "queue") return queue.length === 0 ? "clear" : `${queue.length} ${queue.length === 1 ? "item" : "items"}`
@@ -210,6 +282,84 @@ export function App({
     return snap.servers.length === 0
       ? "none"
       : `${snap.servers.length} · ${fmtMem(serverMem)}${staleN ? ` · ${staleN} stale` : ""}`
+  }
+
+  // map any row to its compact signal line — blip + name + type + age + context
+  const toSignal = (r: Row): Signal => {
+    if (r.kind === "queue") {
+      const it = r.item
+      const ask = it.kind === "question" || it.kind === "approval"
+      const gcol = ask
+        ? waitColor(it.ageSec)
+        : it.kind === "error" || it.kind === "server-mem"
+          ? color.danger
+          : it.kind === "ready"
+            ? color.positive
+            : color.attention
+      const g = ask ? "✻" : it.kind === "error" ? glyph.error : it.kind === "ready" ? glyph.ready : glyph.warn
+      const ctx =
+        it.kind === "ready" && it.agent?.diff && it.agent.diff.files > 0
+          ? `+${it.agent.diff.plus} −${it.agent.diff.minus}`
+          : it.title
+      return {
+        glyph: g,
+        glyphColor: gcol,
+        live: ask ? "sparkle" : null,
+        name: it.project,
+        typeWord: NEEDS_WORD[it.kind],
+        typeColor: gcol,
+        age: it.ageSec > 0 ? fmtDuration(it.ageSec) : undefined,
+        context: ctx,
+      }
+    }
+    if (r.kind === "agent") {
+      const a = r.agent
+      const name = a.wt ? `${a.project}/${a.wt}` : a.project
+      // the roster's own identity — where it lives + what it's doing. Here the
+      // glyph carries the state, so we drop the Needs-style review/asks/failed word
+      // and diff; the disclosed detail still shows the full question / diff / vitals.
+      const where = a.branch && a.branch !== a.wt && !/^(main|master)$/.test(a.branch) ? a.branch : undefined
+      const doing = a.lastTool || a.task || a.lastActivity
+      const context = where && doing ? `${where} · ${doing}` : doing || where
+      if (a.status === "working")
+        return { glyph: "⠋", glyphColor: a.idleSec <= 3 ? color.fg : color.dim, live: "work", name, context }
+      if (a.status === "idle")
+        return { glyph: glyph.idle, glyphColor: color.faint, name, age: fmtDuration(a.idleSec), context }
+      if (a.status === "unknown") return { glyph: glyph.unknown, glyphColor: color.faint, name, context }
+      // waiting / ready / error — state in the glyph + colour, identity in the line
+      const gcol = a.status === "waiting" ? color.attention : a.status === "ready" ? color.positive : color.danger
+      const g = a.status === "waiting" ? glyph.waiting : a.status === "ready" ? glyph.ready : glyph.error
+      return { glyph: g, glyphColor: gcol, name, age: fmtDuration(a.idleSec), context }
+    }
+    if (r.kind === "server") {
+      const s = r.server
+      const heavy = s.memKB > 4 * 1024 * 1024
+      const gcol = s.stale ? color.attention : heavy ? color.danger : color.positive
+      return {
+        glyph: s.stale || heavy ? glyph.warn : glyph.working,
+        glyphColor: gcol,
+        name: s.project,
+        typeWord: s.stale ? "stale" : heavy ? "memory" : undefined,
+        typeColor: gcol,
+        context: `:${s.port} · ${fmtMem(s.memKB)}`,
+      }
+    }
+    if (r.kind === "project") {
+      const g = r.group
+      const worst = g.worst ?? "idle"
+      const word = worst === "waiting" ? "asks" : worst === "error" ? "failed" : worst === "ready" ? "review" : undefined
+      const dirty = g.worktrees?.changed ?? 0
+      return {
+        glyph: statusGlyph(worst),
+        glyphColor: statusColor(worst),
+        name: g.key,
+        typeWord: word,
+        typeColor: statusColor(worst),
+        context: `${fmtCost(g.cost)}${dirty ? ` · ${dirty} dirty` : ""}`,
+      }
+    }
+    // header / wtitem never reach the compact lens — keep the type total
+    return { glyph: glyph.unknown, glyphColor: color.faint, name: "" }
   }
 
   const flash = (m: string) => {
@@ -238,6 +388,13 @@ export function App({
     if (s === "queue") return
     setOpen((o) => ({ ...o, [s]: !o[s] }))
   }
+  // compact: jump to a lens (click or h/l), landing selection on its first row
+  const focusTab = (s: Section) => {
+    setTab(s)
+    const first = buildSectionRows(s)[0]
+    setSelSid(first ? first.sid : `t-${s}`)
+  }
+  const switchTab = (d: number) => focusTab(TABS[(TABS.indexOf(tab) + d + TABS.length) % TABS.length])
   const setRowOpen = (sid: string, v: boolean) =>
     setOpenRows((prev) => {
       const n = new Set(prev)
@@ -256,6 +413,8 @@ export function App({
 
   // go to the thing itself: sessions focus their host app, servers open in the browser
   const goToAgent = (a: Agent) => {
+    // going to a finished session IS reviewing it — drop its review from the queue now
+    if (a.status === "ready") setSeenReady((prev) => new Map(prev).set(a.id, turnSig(a, Date.now())))
     flash("locating session…")
     void focusSession(a).then((dest) => flash(dest ? `opening ${dest}…` : "couldn't find the session's app"))
   }
@@ -268,8 +427,10 @@ export function App({
     else if (it.server) goToServer(it.server)
   }
 
-  // one activation vocabulary — ⏎ and click do the same thing everywhere:
-  // headers fold, queue/server rows GO there, everything else discloses
+  // one activation vocabulary — ⏎ and click, identical in both tiers: a header
+  // folds, a queue item or server GOES (its app / browser), a session or project
+  // discloses in place. The HUD has no headers/wtitems, so there ⏎ means go
+  // (queue/server) or disclose (agent/project). Disclosure also lives on ←/→.
   const activate = (r: Row) => {
     if (r.kind === "header") toggleSection(r.section)
     else if (r.kind === "queue") goToItem(r.item)
@@ -297,11 +458,15 @@ export function App({
         const s = await collect()
         if (!on) return
         setSnap(s)
+        // surface a background auto-update the moment it lands (cheap marker read)
+        if (autoUpdates) setPending(pendingUpdate())
         // on the first real snapshot, unfold active sessions if nothing needs you
         if (!booted.current) {
           booted.current = true
-          if (initialOpen?.sessions === undefined && attentionQueue(s).length === 0)
+          if (initialOpen?.sessions === undefined && attentionQueue(s).length === 0) {
             setOpen((o) => ({ ...o, sessions: true }))
+            setTab("sessions") // compact: open on the live fleet when nothing needs you
+          }
         }
       } catch {
         /* keep last good snapshot */
@@ -370,13 +535,25 @@ export function App({
     // shifted letters arrive as lowercase name + shift flag
     else if (k === "g" || k === "G")
       setSelSid((k === "G" || key.shift ? rows[rows.length - 1] : rows[0])?.sid ?? rows[0]?.sid ?? "h-queue")
-    else if (k === "right" || k === "l") {
+    // HUD: Tab cycles the lens band (←/→ are reserved for fold/expand, as below)
+    else if (k === "tab" || k === "backtab") {
+      if (compact) switchTab(k === "backtab" || key.shift ? -1 : 1)
+    } else if (k === "right" || k === "l") {
+      if (compact) {
+        // HUD: ←/→ are the disclosure gesture (bands ride Tab); rows have no headers/wtitems
+        if (cur && cur.kind !== "header" && cur.kind !== "wtitem") setRowOpen(cur.sid, true)
+        return
+      }
       if (!cur) return
       if (cur.kind === "header") {
         if (!open[cur.section]) toggleSection(cur.section)
         else move(1)
       } else if (cur.kind !== "wtitem") setRowOpen(cur.sid, true)
     } else if (k === "left" || k === "h") {
+      if (compact) {
+        if (cur && cur.kind !== "header" && cur.kind !== "wtitem") setRowOpen(cur.sid, false)
+        return
+      }
       if (!cur) return
       if (cur.kind === "header") {
         if (open[cur.section]) toggleSection(cur.section)
@@ -390,7 +567,9 @@ export function App({
       if (cur) activate(cur)
     } else if (k === "space") {
       if (!cur) return
-      if (cur.kind === "header") toggleSection(cur.section)
+      // compact: space toggles the disclosed detail (no headers/wtitems here)
+      if (compact) setRowOpen(cur.sid, !openRows.has(cur.sid))
+      else if (cur.kind === "header") toggleSection(cur.section)
       else if (cur.kind !== "wtitem") setRowOpen(cur.sid, !openRows.has(cur.sid))
     } else if (k === "o") {
       if (targetAgent) goToAgent(targetAgent)
@@ -412,6 +591,11 @@ export function App({
             },
           })
       }
+    } else if (k === "i") {
+      setShowIdle((v) => {
+        flash(v ? "idle sessions hidden" : "showing idle sessions")
+        return !v
+      })
     } else if (k === "n") {
       setNotifyOn((v) => {
         flash(v ? "notifications off" : "notifications on")
@@ -466,14 +650,18 @@ export function App({
         : cur.kind === "server"
           ? "browser"
           : cur.kind === "project"
-            ? openRows.has(cur.sid)
-              ? "collapse"
-              : "open"
-            : cur.kind === "wtitem"
-              ? "select"
+            ? compact
+              ? ""
               : openRows.has(cur.sid)
                 ? "collapse"
-                : "details"
+                : "open"
+            : cur.kind === "wtitem"
+              ? "select"
+              : compact
+                ? "go"
+                : openRows.has(cur.sid)
+                  ? "collapse"
+                  : "details"
 
   // the footer speaks to the selection on the left; system keys tuck right.
   // inside an overlay there is exactly one move: back.
@@ -481,20 +669,37 @@ export function App({
   const ctxHints: Hint[] = (() => {
     if (short || inOverlay) return []
     const h: Hint[] = []
+    if (compact) {
+      h.push(["tab", "switch"])
+      // show the direction that does something: → unfolds a closed row, ← folds an open one
+      if (cur) h.push(openRows.has(cur.sid) ? ["←", "fold"] : ["→", "unfold"])
+      if (cur?.kind === "queue") h.push(["⏎", "go"])
+      else if (cur?.kind === "server") h.push(["⏎", "browser"])
+      else if (cur?.kind === "agent") h.push(["o", "open"])
+      // only a server gets a copy hint (its URL); `c` still copies a session's resume cmd, just unadvertised
+      if (targetServer) h.push(["c", "copy"])
+      if (targetAgent || targetServer) h.push(["x", "kill"])
+      return h
+    }
     if (cur && cur.kind !== "wtitem" && primary) h.push(["⏎", primary])
     if (cur?.kind === "queue" || cur?.kind === "server")
       h.push(["␣", openRows.has(cur.sid) ? "collapse" : "inspect"])
     if (cur?.kind === "agent") h.push(["o", "open"])
-    if (targetAgent || targetServer) h.push(["c", "copy"], ["x", "kill"])
+    if (targetServer) h.push(["c", "copy"])
+    if (targetAgent || targetServer) h.push(["x", "kill"])
     if (cur?.kind === "wtitem") h.push(["p", "prune"])
     return h
   })()
+  // compact has no room for "? help" on the right — keep the band/fold hints on the
+  // left visible and let the help overlay carry the rest (? still works)
   const sysHints: Hint[] = inOverlay
     ? [["esc", "back"]]
-    : [
-        ["?", "help"],
-        ["q", "quit"],
-      ]
+    : compact
+      ? [["q", "quit"]]
+      : [
+          ["?", "help"],
+          ["q", "quit"],
+        ]
 
   const renderAgent = (a: Agent) => (
     <box key={`a-${a.id}`} id={`a-${a.id}`} onMouseDown={clickRow(`a-${a.id}`)}>
@@ -523,12 +728,18 @@ export function App({
           </span>
           {waiting > 0 && <span fg={color.attention}>{`  ▲${waiting}`}</span>}
           {errorN > 0 && <span fg={color.danger}>{`  ✕${errorN}`}</span>}
-          {ready > 0 && <span fg={color.positive}>{`  ◆${ready}`}</span>}
-          {workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
+          {reviewN > 0 && <span fg={color.positive}>{`  ◆${reviewN}`}</span>}
+          {/* working is calm — drop the count in compact, keep the actionable ones */}
+          {!compact && workingN > 0 && <span fg={color.dim}>{`  ●${workingN}`}</span>}
         </text>
         <text>
-          {updateVer && <span fg={color.faint}>{`${icon.up} ${updateVer}  `}</span>}
-          {fleetBurn >= 0.05 && (
+          {pending ? (
+            <span fg={color.positive}>{`${icon.up} ${pending} ready  `}</span>
+          ) : updateVer ? (
+            <span fg={color.faint}>{`${icon.up} ${updateVer}  `}</span>
+          ) : null}
+          {/* burn is the least urgent number and the prime collision source — drop it compact */}
+          {!compact && fleetBurn >= 0.05 && (
             <span>
               <Stat s={`$${fleetBurn.toFixed(1)}/h`} />
               <span fg={color.dim}>{" · "}</span>
@@ -542,9 +753,50 @@ export function App({
       {/* middle — one scrolling accordion of collapsible sections */}
       <box flexGrow={1} flexBasis={0} minHeight={0} flexDirection="column" paddingTop={dense ? 0 : 1}>
         {help ? (
-          <HelpOverlay version={VERSION} updateVer={updateVer} />
+          <HelpOverlay version={VERSION} updateVer={updateVer} pending={pending} autoUpdates={autoUpdates} />
         ) : log ? (
           <EventLog events={events} maxRows={height - 8} />
+        ) : compact ? (
+          // the radar scope: one lens, signal lines that breathe with the height
+          <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: compactGap }}>
+            {rows.length ? (
+              rows.map((r) => {
+                const sig = toSignal(r)
+                const open = openRows.has(r.sid)
+                return (
+                  <box key={r.sid} flexDirection="column">
+                    <box id={r.sid} onMouseDown={clickRow(r.sid)}>
+                      <SignalLine
+                        signal={sig}
+                        selected={curSid === r.sid}
+                        width={cardWidth}
+                        twoLine={compactTwoLine}
+                        expanded={open}
+                        tick={sig.live ? tick : 0}
+                      />
+                    </box>
+                    {open && (
+                      <SignalDetail
+                        agent={r.kind === "agent" ? r.agent : r.kind === "queue" ? r.item.agent : undefined}
+                        server={r.kind === "server" ? r.server : r.kind === "queue" ? r.item.server : undefined}
+                        group={r.kind === "project" ? r.group : undefined}
+                        width={cardWidth}
+                      />
+                    )}
+                  </box>
+                )
+              })
+            ) : tab === "queue" ? (
+              <text>
+                <span fg={color.positive}>{`${glyph.check} `}</span>
+                <span fg={color.dim}>nothing needs you</span>
+              </text>
+            ) : (
+              <text fg={color.dim}>
+                {tab === "sessions" ? "no active sessions" : tab === "servers" ? "no dev servers" : "no projects"}
+              </text>
+            )}
+          </scrollbox>
         ) : (
           <scrollbox ref={sbRef} scrollY flexGrow={1} flexBasis={0} minHeight={0} contentOptions={{ gap: dense ? 0 : 1 }}>
             <>
@@ -662,11 +914,15 @@ export function App({
 
       {/* footer */}
       <box flexShrink={0} flexDirection="column">
-        {!short && !dense && !log && (
+        {compact && !log ? (
+          <box height={1} flexDirection="row">
+            <TabBar tabs={TABS.map((s) => ({ key: s, label: LABEL_COMPACT[s] }))} active={tab} onTab={(k) => focusTab(k as Section)} />
+          </box>
+        ) : !short && !dense && !log ? (
           <box height={1} flexDirection="row">
             <StateLegend present={presentStates} />
           </box>
-        )}
+        ) : null}
         <Rule />
         <box paddingBottom={dense ? 0 : 1}>
           {confirm ? (

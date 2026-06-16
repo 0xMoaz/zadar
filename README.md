@@ -36,7 +36,7 @@ nothing changes; open it and you can see.
 curl -fsSL https://raw.githubusercontent.com/0xMoaz/zadar/main/install.sh | bash
 ```
 
-With Bun installed, there are package routes too:
+Or, with Bun installed:
 
 ```bash
 bunx zadar              # disposable try — nothing lands on your PATH
@@ -50,10 +50,8 @@ Then open a new terminal and run:
 zadar
 ```
 
-`q` quits · `?` shows the keymap · `zadar upgrade` updates in place.
-
-> First run installs the zadar mark (the header logo) as a tiny font —
-> it appears after your next terminal restart. No configuration needed.
+`q` quits · `?` shows the keymap. zadar auto-updates on launch (the new version
+applies next open); `zadar upgrade` forces it, `ZADAR_NO_AUTO_UPDATE=1` opts out.
 
 ## The view
 

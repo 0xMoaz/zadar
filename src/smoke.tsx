@@ -39,7 +39,19 @@ await shot("SERENE — queue clear (90×24)", 90, 24, [], calmSnapshot)
 await shot("PROJECTS DRILLED (100×50)", 100, 50, [
   "RETURN", "j", "RETURN", "j", "j", "RETURN", "j", "j", "j", "j", "j", "j", "j", "RETURN",
 ])
-await shot("NARROW (72×36)", 72, 36)
+await shot("ACCORDION — narrow end (78×36)", 78, 36)
 await shot("DENSE SPLIT (84×18)", 84, 18)
+
+// compact / sticky-HUD tier: a radar scope — one band fills the pane, each thing
+// is one signal line, the rest are tabs. Tab switches band, ⏎ discloses; Needs leads.
+await shot("COMPACT — needs band (44×26)", 44, 26)
+await shot("COMPACT — sessions band (44×26)", 44, 26, ["TAB"])
+await shot("COMPACT — servers band (44×26)", 44, 26, ["TAB", "TAB"])
+await shot("COMPACT — disclosed item (44×30)", 44, 30, ["TAB", "RETURN"])
+await shot("COMPACT — calm, sessions band (44×24)", 44, 24, [], calmSnapshot)
+// the formerly-awkward middle band (56–74) is now the scope, with room to breathe
+await shot("COMPACT — medium band (64×26)", 64, 26)
+// tall window: Needs/Sessions earn a second context line; the void fills with content
+await shot("COMPACT — tall, two-line (64×34)", 64, 34)
 
 process.exit(0)

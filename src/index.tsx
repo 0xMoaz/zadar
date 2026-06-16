@@ -9,7 +9,7 @@ import { applyTerminalPalette } from "./theme"
 import { collect } from "./collect"
 import { mockSnapshot } from "./mock"
 import { loadToday } from "./history"
-import { installKind, INSTALLER_URL, VERSION } from "./update"
+import { checkForUpdate, installKind, INSTALLER_URL, markUpdateApplied, selfUpdate, updateChannel, VERSION } from "./update"
 
 // A dashboard should never die on a stray async error — keep rendering, but
 // leave a trace so "it shows nothing" reports are diagnosable after the fact.
@@ -52,8 +52,9 @@ if (argv.includes("--help") || argv.includes("-h")) {
       "",
       "  --api [port]   also serve fleet state as JSON on 127.0.0.1 (default 7433)",
       "  --version      print the version",
-      "  upgrade        update zadar in place (binary installs re-run the installer)",
+      "  upgrade        force an update now (zadar auto-updates on launch by default)",
       "",
+      "  auto-update applies on the next launch; ZADAR_NO_AUTO_UPDATE=1 opts out.",
       "keys are documented in-app — press ?",
     ].join("\n"),
   )
@@ -108,3 +109,18 @@ try {
 const demo = argv.includes("--demo") || argv.includes("--mock")
 const mark = ensureMark()
 createRoot(renderer).render(demo ? <App snapshot={mockSnapshot} live={false} demo mark={mark} /> : <App mark={mark} />)
+
+// Auto-update on launch: if a newer release is out, pull it in the background; it
+// applies on the NEXT launch (the live session keeps running). Off for dev checkouts
+// and bunx, and via ZADAR_NO_AUTO_UPDATE=1. Best-effort — never blocks or crashes launch.
+if (!demo && !process.env.ZADAR_NO_AUTO_UPDATE) {
+  const channel = updateChannel()
+  if (channel !== "none") {
+    void (async () => {
+      const latest = await checkForUpdate() // daily-cached gate — only act when behind
+      if (!latest) return
+      const applied = await selfUpdate(channel, latest)
+      if (applied) markUpdateApplied(applied)
+    })().catch(logSwallowed("autoUpdate"))
+  }
+}

@@ -44,16 +44,45 @@ describe("pending tool calls", () => {
     expect(inferStatus([pendingBash], APPROVAL_SEC - 10).status).toBe("working")
   })
 
-  test("old pending tool → waiting(approval) with the tool label", () => {
-    const r = inferStatus([pendingBash], APPROVAL_SEC + 10)
+  test("an old pending NON-running tool → waiting(approval) with the tool label", () => {
+    const pendingRead = asst([toolUse("t2b", "Read", { file_path: "/repo/src/config.ts" })], "tool_use")
+    const r = inferStatus([pendingRead], APPROVAL_SEC + 10)
     expect(r.status).toBe("waiting")
     expect(r.waitKind).toBe("approval")
-    expect(r.question).toBe("run bun test")
+    expect(r.question).toBe("read src/config.ts")
+  })
+
+  test("a long-running Bash never flips to a false 'approve' — it's the agent working", () => {
+    expect(inferStatus([pendingBash], APPROVAL_SEC + 600).status).toBe("working")
+  })
+
+  test("a pending subagent Task is the agent working, not awaiting you", () => {
+    const pendingTask = asst([toolUse("t8", "Task", { description: "extract the spec" })], "tool_use")
+    expect(inferStatus([pendingTask], APPROVAL_SEC + 600).status).toBe("working")
   })
 
   test("a resolved tool call is not pending", () => {
     const r = inferStatus([pendingBash, toolResult("t2")], APPROVAL_SEC + 10)
     expect(r.status).not.toBe("waiting")
+  })
+
+  test("a permission/access request → waiting(approval) immediately, no hung-tool wait", () => {
+    const reqAccess = asst([toolUse("t3", "mcp__computer-use__request_access")], "tool_use")
+    const r = inferStatus([reqAccess], 3) // fresh, well under APPROVAL_SEC
+    expect(r.status).toBe("waiting")
+    expect(r.waitKind).toBe("approval")
+    expect(r.question).toContain("computer-use") // names the server so the notification reads clearly
+  })
+
+  test("an MCP sign-in request is treated the same — and clears once resolved", () => {
+    const auth = asst([toolUse("t4", "mcp__figma__authenticate")], "tool_use")
+    expect(inferStatus([auth], 1).status).toBe("waiting")
+    expect(inferStatus([auth, toolResult("t4")], 1).status).not.toBe("waiting")
+  })
+
+  test("a look-alike (request_access_token) is NOT a permission gate — stays working", () => {
+    const tokenFetch = asst([toolUse("t9", "mcp__oauth__request_access_token")], "tool_use")
+    expect(inferStatus([tokenFetch], 3).status).toBe("working")
   })
 })
 
