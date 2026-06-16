@@ -1,6 +1,6 @@
 {
   "name": "zadar",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Radar for your agent fleet — see which Claude Code or Codex session needs you, and what it's asking, at a glance. Sessions, dev servers, and worktrees in one calm terminal view.",
   "type": "module",
   "license": "MIT",
