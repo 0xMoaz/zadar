@@ -43,6 +43,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4 # for CHANGELOG.md
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
@@ -51,5 +52,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "${{ github.ref_name }}" zadar-*.zip* \
-            --title "${{ github.ref_name }}" --generate-notes
+          # notes from the matching CHANGELOG.md section; fall back to auto-generated
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" '$0==v{g=1;next} g&&/^## /{exit} g{print}' CHANGELOG.md > notes.md || true
+          if [ -s notes.md ]; then
+            gh release create "${GITHUB_REF_NAME}" zadar-*.zip* \
+              --title "${GITHUB_REF_NAME}" --notes-file notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" zadar-*.zip* \
+              --title "${GITHUB_REF_NAME}" --generate-notes
+          fi
