@@ -64,11 +64,24 @@ applies next open); `zadar upgrade` forces it, `ZADAR_NO_AUTO_UPDATE=1` opts out
 
 The full tour is in **[FEATURES.md](./FEATURES.md)**.
 
+## One view, two shapes
+
+The layout reflows to the pane you give it — automatically, no flags.
+
+- **Full** (≥ 75 cols) — the desk dashboard: every section at once, each
+  session's vitals on the right, fleet burn in the header.
+- **HUD** (< 75 cols) — a compact *radar scope* for an always-on peripheral
+  pane. One band fills the width; `Tab` cycles `Needs · Sessions · Servers ·
+  Projects`. Each item is a single signal line — a colour-coded blip, what it
+  needs, a clip of context — and `←`/`→` unfolds it in place. Pin it in a
+  sticky column and glance over only when a blip changes.
+
 ## Keys
 
 |  |  |
 |---|---|
 | `↑↓` / `jk` | move |
+| `Tab` | switch band (HUD) |
 | `⏎` / click | go to the session's app · open server · fold |
 | `␣` | inspect a queue item |
 | `c` / `x` | copy resume command or URL / kill (with confirm) |
