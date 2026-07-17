@@ -10,6 +10,8 @@ zadar is an always-open terminal view that checks for you. It watches every
 Claude Code and Codex session on your machine and answers one question at a
 glance: **who needs you right now, and what for.**
 
+![zadar terminal dashboard demo](./assets/zadar.gif)
+
 ```
 ▲ webapp · fix/auth                                              waiting · 8m
     "Should I overwrite the existing config at app/config.ts?"
